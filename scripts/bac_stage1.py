@@ -28,8 +28,17 @@ def process(input_path, output_path=None):
     else:
         output_path = Path(output_path)
 
-    with open(input_path, 'r', encoding='utf-8') as f:
-        lines = f.readlines()
+    try:
+        with open(input_path, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+    except UnicodeDecodeError:
+        try:
+            with open(input_path, 'r', encoding='latin-1') as f:
+                lines = f.readlines()
+            print(f"[Warning] File {input_path} is not UTF-8 encoded. Read as latin-1.")
+        except UnicodeDecodeError:
+            print(f"[Error] Could not decode {input_path} as UTF-8 or latin-1. Please check the file encoding.")
+            raise
 
     output_lines = []
 
