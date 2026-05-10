@@ -28,6 +28,18 @@ def csv_quote(s):
     return '"' + s.replace('"', '""') + '"'
 
 
+def negate_amount(raw: str) -> str:
+    """Flip the sign of an amount string, preserving decimal precision."""
+    raw = raw.strip().strip('"')
+    try:
+        value = -float(raw)
+    except ValueError:
+        return raw
+    if value == int(value):
+        return str(int(value))
+    return str(value)
+
+
 def process(input_path, output_path=None, currency=None):
     input_path = Path(input_path)
     stem = input_path.stem
@@ -73,6 +85,7 @@ def process(input_path, output_path=None, currency=None):
             continue
 
         date = parse_date(date_raw)
+        amount = negate_amount(amount)
         payee = desc
         memo = ref  # Número de Referencia -> Memo (may be empty)
 

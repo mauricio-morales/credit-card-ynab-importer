@@ -6,7 +6,7 @@ Converts credit card statement exports from **BAC** (CSV) and **DaviBank** (XLS)
 
 ## Setup
 
-**Requirements:** Python 3.8+
+**Requirements:** Python 3.9+
 
 Install dependencies:
 
@@ -16,23 +16,59 @@ pip3 install -r requirements.txt
 
 ---
 
-## How to Run
+## How to Run — TUI (recommended)
 
-Run the orchestrator with one or more input files:
+Launch the interactive terminal interface:
+
+```bash
+python3 -m tui
+```
+
+Or equivalently:
+
+```bash
+python3 run.py
+```
+
+The TUI guides you through the full conversion in four steps:
+
+1. **Welcome** — choose BAC (CSV) or Davi/Scotia (XLS)
+2. **File picker** — browse to your statement file
+3. **Progress** — watch the conversion run through all pipeline stages
+4. **Summary** — see the transaction count and paths to the generated YNAB files
+
+Output files are written to the **same folder as the input file**.
+
+### Keyboard shortcuts
+
+| Screen | Key | Action |
+| ------ | --- | ------ |
+| Welcome | `1` | Select BAC |
+| Welcome | `2` | Select Davi/Scotia |
+| Welcome | `q` | Quit |
+| File picker | `↑ ↓ Enter` | Navigate / expand |
+| File picker | `Tab` | Move to "Select This File" button |
+| File picker | `Esc` / `b` | Go back |
+| Summary | `c` | Convert another file |
+| Summary | `q` | Quit |
+| Summary (error) | `r` | Try again (same file picker) |
+| Summary (error) | `s` | Start over |
+| Any screen | `Ctrl+C` | Force quit |
+
+---
+
+## How to Run — CLI (advanced)
+
+Run the orchestrator directly with one or more input files:
 
 ```bash
 python3 scripts/orchestrator.py <file1> [file2 ...]
 ```
 
 The script auto-detects the bank from the file extension:
+
 - `.csv` → BAC pipeline
 - `.xls` → DaviBank pipeline
-
-Output files are written to the **same directory as the input file**.
-
----
-
-## Examples
 
 ### BAC — process a single month
 

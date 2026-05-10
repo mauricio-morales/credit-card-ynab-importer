@@ -1,21 +1,31 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: (unversioned template) → 1.0.0
-New principles added:
-  - I. Pipeline-Stage Isolation
-  - II. YNAB Output Consistency
-  - III. Test-First (NON-NEGOTIABLE)
-  - IV. Data Fidelity
-  - V. Simplicity (YAGNI)
-New sections added:
-  - Technical Stack
-  - Development Workflow
-  - Governance
+Version change: 1.0.0 → 1.1.0
+Amendment type: MINOR + PATCH
+
+Changes in this version (2026-05-10, feature 001-textual-tui):
+
+  MINOR — Technical Stack: Textual TUI framework added as allowed dependency
+    Rationale: Feature 001-textual-tui requires a terminal file-browser + progress
+    UX that no simpler approach can satisfy for non-technical users (FR-003–FR-008).
+    Textual is a terminal (TUI) library, not a windowed GUI framework; the original
+    "no GUI frameworks" constraint targeted native OS GUI toolkits.
+
+  MINOR — Technical Stack: Python minimum raised from 3.8+ to 3.9+
+    Rationale: textual>=0.82.0 requires Python 3.9. Python 3.8 reached EOL
+    October 2024; all supported macOS versions ship Python 3.9+.
+
+  PATCH — Principle II: Sign convention documented
+    Rationale: YNAB requires the opposite sign from source statements (charges
+    are positive in bank exports but must be negative in YNAB outflows). Stage 3
+    scripts now apply negate_amount() to enforce this. Added to Principle II for
+    explicit documentation.
+
 Templates reviewed:
-  - .specify/templates/plan-template.md        ✅ aligned (Constitution Check gate present)
-  - .specify/templates/spec-template.md        ✅ aligned (no bank-specific overrides needed)
-  - .specify/templates/tasks-template.md       ✅ aligned (test-first discipline reflected)
+  - .specify/templates/plan-template.md        ✅ aligned (no changes needed)
+  - .specify/templates/spec-template.md        ✅ aligned (no changes needed)
+  - .specify/templates/tasks-template.md       ✅ aligned (no changes needed)
   - .specify/templates/constitution-template.md ✅ source template, no changes needed
 Deferred TODOs: none
 -->
@@ -47,6 +57,10 @@ All bank pipelines MUST produce identical final output format:
 - Dates MUST be formatted as `YYYY/MM/DD`
 - Memo MUST be an empty string `""` for BAC; populated from Número de
   Referencia (or empty) for DaviBank
+- **Sign convention**: Stage 3 MUST negate amounts from the source file.
+  Positive source amounts (charges/debits) become negative in YNAB (outflow);
+  negative source amounts (payments/refunds) become positive (inflow). Stage 3
+  scripts apply `negate_amount()` before writing the Amount column.
 
 Any deviation from this contract is a breaking change and MUST increment the
 MAJOR version of the affected pipeline module.
@@ -91,12 +105,16 @@ No abstractions beyond what the current two-bank pipeline requires:
 
 The project MUST use the following technology stack:
 
-- **Language**: Python 3.8+
+- **Language**: Python 3.9+ (raised from 3.8+ to support Textual; 3.8 is EOL)
 - **Standard library only** for BAC pipeline: `csv`, `os`, `sys`, `argparse`,
   `re`, `pathlib`
 - **xlrd** (≥2.0.1) for DaviBank `.xls` parsing — no other XLS library
-- **pytest** (≥7.0) for regression testing
-- No databases, no network I/O, no GUI frameworks
+- **pytest** (≥7.0) + **pytest-asyncio** (≥0.23) for regression and TUI testing
+- **textual** (≥0.82.0) for the terminal user interface — this is the sole
+  exception to the "no GUI frameworks" constraint; Textual is a terminal (TUI)
+  library, not a windowed GUI toolkit, and is required for the file-browser +
+  progress UX (feature 001-textual-tui). No other TUI or GUI framework is allowed.
+- No databases, no network I/O, no native windowed GUI frameworks
 
 Dependencies are declared in `requirements.txt` at the repository root.
 
@@ -129,4 +147,4 @@ All feature implementations and code reviews MUST verify compliance with the
 Core Principles above. The `plan-template.md` Constitution Check gate enforces
 this at planning time.
 
-**Version**: 1.0.0 | **Ratified**: 2026-05-10 | **Last Amended**: 2026-05-10
+**Version**: 1.1.0 | **Ratified**: 2026-05-10 | **Last Amended**: 2026-05-10

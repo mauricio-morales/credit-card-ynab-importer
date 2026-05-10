@@ -19,11 +19,11 @@
 
 **Purpose**: Install dependency, create package skeleton, and configure the async test runner.
 
-- [ ] T001 Add `textual>=0.82.0` to `requirements.txt`
-- [ ] T002 Create `tui/` package skeleton: `tui/__init__.py` and `tui/screens/__init__.py` (empty files establishing the module hierarchy)
-- [ ] T003 [P] Create `tui/__main__.py` entry point: import `CreditCardConverterApp` from `tui.app` and call `.run()` so the tool launches with `python -m tui`
-- [ ] T004 [P] Create `run.py` at repo root as a one-liner shim: `from tui.app import CreditCardConverterApp; CreditCardConverterApp().run()`
-- [ ] T005 [P] Add `asyncio_mode = "auto"` to `pytest.ini` (create if absent) so all async Pilot tests run without manual `@pytest.mark.asyncio` decoration
+- [X] T001 Add `textual>=0.82.0` to `requirements.txt`
+- [X] T002 Create `tui/` package skeleton: `tui/__init__.py` and `tui/screens/__init__.py` (empty files establishing the module hierarchy)
+- [X] T003 [P] Create `tui/__main__.py` entry point: import `CreditCardConverterApp` from `tui.app` and call `.run()` so the tool launches with `python -m tui`
+- [X] T004 [P] Create `run.py` at repo root as a one-liner shim: `from tui.app import CreditCardConverterApp; CreditCardConverterApp().run()`
+- [X] T005 [P] Add `asyncio_mode = "auto"` to `pytest.ini` (create if absent) so all async Pilot tests run without manual `@pytest.mark.asyncio` decoration
 
 **Checkpoint**: Package importable, `python -m tui` path resolves, pytest accepts async tests.
 
@@ -35,11 +35,11 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T006 Create `tui/models.py` with `ConversionType(Enum)`, `ConversionJob(dataclass)`, `ConversionResult(dataclass)`, and `ProgressUpdate(Message)` exactly as specified in `specs/001-textual-tui/data-model.md`
-- [ ] T007 Create `tui/app.py` with `CreditCardConverterApp(App)` class: global `BINDINGS = [("ctrl+c", "quit", "Quit")]`, and `on_mount` that calls `self.push_screen(WelcomeScreen())` as the initial screen (import guard needed to avoid circular import with screens)
-- [ ] T008 Fix amount sign inversion in `scripts/bac_stage3.py`: add `negate_amount(raw: str) -> str` helper (as specified in `plan.md` § "Pipeline Fix") and apply it to the amount assignment at line 77 (FR-013)
-- [ ] T009 [P] Fix amount sign inversion in `scripts/davi_stage3.py`: add `negate_amount(raw: str) -> str` helper and apply it to the amount assignment at line 73 (FR-013)
-- [ ] T010 Regenerate Stage 3 fixture files after the sign-inversion fix by re-running the pipeline against fixture inputs (`tests/fixtures/BAC Sample-out3-crc.csv`, `tests/fixtures/BAC Sample-out3-usd.csv`, `tests/fixtures/BAC Sample2-out3-crc.csv`, `tests/fixtures/BAC Sample2-out3-usd.csv`, `tests/fixtures/DaviBank Sample-out3-crc.csv`, `tests/fixtures/DaviBank Sample-out3-usd.csv`) and confirm existing pipeline tests pass with `pytest tests/test_bac_pipeline.py tests/test_davi_pipeline.py`
+- [X] T006 Create `tui/models.py` with `ConversionType(Enum)`, `ConversionJob(dataclass)`, `ConversionResult(dataclass)`, and `ProgressUpdate(Message)` exactly as specified in `specs/001-textual-tui/data-model.md`
+- [X] T007 Create `tui/app.py` with `CreditCardConverterApp(App)` class: global `BINDINGS = [("ctrl+c", "quit", "Quit")]`, and `on_mount` that calls `self.push_screen(WelcomeScreen())` as the initial screen (import guard needed to avoid circular import with screens)
+- [X] T008 Fix amount sign inversion in `scripts/bac_stage3.py`: add `negate_amount(raw: str) -> str` helper (as specified in `plan.md` § "Pipeline Fix") and apply it to the amount assignment at line 77 (FR-013)
+- [X] T009 [P] Fix amount sign inversion in `scripts/davi_stage3.py`: add `negate_amount(raw: str) -> str` helper and apply it to the amount assignment at line 73 (FR-013)
+- [X] T010 Regenerate Stage 3 fixture files after the sign-inversion fix by re-running the pipeline against fixture inputs (`tests/fixtures/BAC Sample-out3-crc.csv`, `tests/fixtures/BAC Sample-out3-usd.csv`, `tests/fixtures/BAC Sample2-out3-crc.csv`, `tests/fixtures/BAC Sample2-out3-usd.csv`, `tests/fixtures/DaviBank Sample-out3-crc.csv`, `tests/fixtures/DaviBank Sample-out3-usd.csv`) and confirm existing pipeline tests pass with `pytest tests/test_bac_pipeline.py tests/test_davi_pipeline.py`
 
 **Checkpoint**: Foundation ready — data model exists, app shell boots, pipeline produces sign-inverted amounts, all existing tests pass. User story implementation can now begin.
 
@@ -53,19 +53,19 @@
 
 ### Tests for User Story 1 (TDD — write first, verify they fail, then implement)
 
-- [ ] T011 [P] [US1] Write failing Pilot test `test_welcome_screen_bac_flow` in `tests/test_tui.py`: assert two buttons are visible, `1` key activates BAC button and transitions to `FilePickerScreen`, footer shows expected bindings
-- [ ] T012 [P] [US1] Write failing Pilot test `test_file_picker_bac` in `tests/test_tui.py`: assert `FilePickerScreen` shows only `.csv` files, "Select This File" button triggers switch to `ProgressScreen`, `Escape` pops back to `WelcomeScreen`
-- [ ] T013 [P] [US1] Write failing Pilot test `test_progress_screen_bac` in `tests/test_tui.py`: mock orchestrator stages, assert `ProgressBar` advances on each `ProgressUpdate` message, screen transitions to `SummaryScreen` after worker completes
-- [ ] T014 [P] [US1] Write failing Pilot test `test_summary_screen_success` in `tests/test_tui.py`: construct a successful `ConversionResult`, assert transaction count and output paths are displayed, `c` key switches to `WelcomeScreen`, `q` key calls `app.exit()`
+- [X] T011 [P] [US1] Write failing Pilot test `test_welcome_screen_bac_flow` in `tests/test_tui.py`: assert two buttons are visible, `1` key activates BAC button and transitions to `FilePickerScreen`, footer shows expected bindings
+- [X] T012 [P] [US1] Write failing Pilot test `test_file_picker_bac` in `tests/test_tui.py`: assert `FilePickerScreen` shows only `.csv` files, "Select This File" button triggers switch to `ProgressScreen`, `Escape` pops back to `WelcomeScreen`
+- [X] T013 [P] [US1] Write failing Pilot test `test_progress_screen_bac` in `tests/test_tui.py`: mock orchestrator stages, assert `ProgressBar` advances on each `ProgressUpdate` message, screen transitions to `SummaryScreen` after worker completes
+- [X] T014 [P] [US1] Write failing Pilot test `test_summary_screen_success` in `tests/test_tui.py`: construct a successful `ConversionResult`, assert transaction count and output paths are displayed, `c` key switches to `WelcomeScreen`, `q` key calls `app.exit()`
 
 ### Implementation for User Story 1
 
-- [ ] T015 [US1] Implement `WelcomeScreen` in `tui/screens/welcome.py`: `BINDINGS = [("1", ...), ("2", ...), ("q", "quit")]`, two `Button` widgets labelled per spec, `on_button_pressed` calling `self.app.push_screen(FilePickerScreen(conversion_type))` per `specs/001-textual-tui/contracts/screen-flow.md`
-- [ ] T016 [US1] Implement `FilteredDirectoryTree(DirectoryTree)` in `tui/screens/file_picker.py`: constructor accepts `allowed_extensions: set[str]`, overrides `filter_paths(paths)` to yield only paths whose suffix (lowercased) is in `allowed_extensions` or whose `is_dir()` is True
-- [ ] T017 [US1] Implement `FilePickerScreen` in `tui/screens/file_picker.py`: embeds `FilteredDirectoryTree` with `{".csv"}` for BAC, a `Label` showing the currently highlighted file path, a "Select This File" `Button` (disabled until a file is highlighted), `BINDINGS = [("escape", "go_back"), ("b", "go_back")]`, back action calls `self.app.pop_screen()`, confirm action builds `ConversionJob` and calls `self.app.switch_screen(ProgressScreen(job))`
-- [ ] T018 [US1] Implement `ProgressScreen` in `tui/screens/progress.py`: `BINDINGS = []`, `ProgressBar` widget, status `Label`, `@work(thread=True, exclusive=True)` method `_run_conversion` that calls BAC orchestrator pipeline stages and posts `ProgressUpdate(text, step, total_steps=4)` via `self.call_from_thread(self.post_message, ...)` after each stage; `on_progress_update` handler advances bar and label; on completion calls `self.app.switch_screen(SummaryScreen(result))`
-- [ ] T019 [US1] Implement `SummaryScreen` success view in `tui/screens/summary.py`: displays `ConversionResult.transaction_count`, iterates `output_files` as `Label` rows, lists `warnings`, `BINDINGS = [("c", "convert_another"), ("q", "quit")]`, "Convert Another" button calls `self.app.switch_screen(WelcomeScreen())`, "Quit" button calls `self.app.exit()`
-- [ ] T020 [US1] Update `tui/app.py` to import and register all four screens, then run `python -m tui` manually and walk through the BAC happy path with a real or fixture CSV to confirm end-to-end flow works
+- [X] T015 [US1] Implement `WelcomeScreen` in `tui/screens/welcome.py`: `BINDINGS = [("1", ...), ("2", ...), ("q", "quit")]`, two `Button` widgets labelled per spec, `on_button_pressed` calling `self.app.push_screen(FilePickerScreen(conversion_type))` per `specs/001-textual-tui/contracts/screen-flow.md`
+- [X] T016 [US1] Implement `FilteredDirectoryTree(DirectoryTree)` in `tui/screens/file_picker.py`: constructor accepts `allowed_extensions: set[str]`, overrides `filter_paths(paths)` to yield only paths whose suffix (lowercased) is in `allowed_extensions` or whose `is_dir()` is True
+- [X] T017 [US1] Implement `FilePickerScreen` in `tui/screens/file_picker.py`: embeds `FilteredDirectoryTree` with `{".csv"}` for BAC, a `Label` showing the currently highlighted file path, a "Select This File" `Button` (disabled until a file is highlighted), `BINDINGS = [("escape", "go_back"), ("b", "go_back")]`, back action calls `self.app.pop_screen()`, confirm action builds `ConversionJob` and calls `self.app.switch_screen(ProgressScreen(job))`
+- [X] T018 [US1] Implement `ProgressScreen` in `tui/screens/progress.py`: `BINDINGS = []`, `ProgressBar` widget, status `Label`, `@work(thread=True, exclusive=True)` method `_run_conversion` that calls BAC orchestrator pipeline stages and posts `ProgressUpdate(text, step, total_steps=4)` via `self.call_from_thread(self.post_message, ...)` after each stage; `on_progress_update` handler advances bar and label; on completion calls `self.app.switch_screen(SummaryScreen(result))`
+- [X] T019 [US1] Implement `SummaryScreen` success view in `tui/screens/summary.py`: displays `ConversionResult.transaction_count`, iterates `output_files` as `Label` rows, lists `warnings`, `BINDINGS = [("c", "convert_another"), ("q", "quit")]`, "Convert Another" button calls `self.app.switch_screen(WelcomeScreen())`, "Quit" button calls `self.app.exit()`
+- [X] T020 [US1] Update `tui/app.py` to import and register all four screens, then run `python -m tui` manually and walk through the BAC happy path with a real or fixture CSV to confirm end-to-end flow works
 
 **Checkpoint**: User Story 1 is fully functional and testable independently. `pytest tests/test_tui.py::test_welcome_screen_bac_flow tests/test_tui.py::test_file_picker_bac tests/test_tui.py::test_progress_screen_bac tests/test_tui.py::test_summary_screen_success` all pass.
 
@@ -79,12 +79,12 @@
 
 ### Tests for User Story 2
 
-- [ ] T021 [US2] Write failing Pilot test `test_davi_full_flow` in `tests/test_tui.py`: `2` key activates Davi option, `FilePickerScreen` shows only `.xls`/`.xlsx` files (no `.csv`), mocked Davi pipeline stages complete, `SummaryScreen` shows success with correct output paths
+- [X] T021 [US2] Write failing Pilot test `test_davi_full_flow` in `tests/test_tui.py`: `2` key activates Davi option, `FilePickerScreen` shows only `.xls`/`.xlsx` files (no `.csv`), mocked Davi pipeline stages complete, `SummaryScreen` shows success with correct output paths
 
 ### Implementation for User Story 2
 
-- [ ] T022 [US2] Extend `ProgressScreen._run_conversion()` in `tui/screens/progress.py` to branch on `job.conversion_type == ConversionType.DAVI` and call Davi orchestrator stages (`davi_stage1`, `davi_stage2`, `davi_stage3`) posting four `ProgressUpdate` messages identical in structure to BAC
-- [ ] T023 [US2] Verify `FilteredDirectoryTree` in `tui/screens/file_picker.py` passes `{".xls", ".xlsx"}` when `ConversionType.DAVI` is passed to `FilePickerScreen` — confirm BAC and Davi paths both use the same `FilteredDirectoryTree` class with the correct extension set
+- [X] T022 [US2] Extend `ProgressScreen._run_conversion()` in `tui/screens/progress.py` to branch on `job.conversion_type == ConversionType.DAVI` and call Davi orchestrator stages (`davi_stage1`, `davi_stage2`, `davi_stage3`) posting four `ProgressUpdate` messages identical in structure to BAC
+- [X] T023 [US2] Verify `FilteredDirectoryTree` in `tui/screens/file_picker.py` passes `{".xls", ".xlsx"}` when `ConversionType.DAVI` is passed to `FilePickerScreen` — confirm BAC and Davi paths both use the same `FilteredDirectoryTree` class with the correct extension set
 
 **Checkpoint**: User Stories 1 and 2 both work independently. `pytest tests/test_tui.py::test_davi_full_flow` passes alongside all US1 tests.
 
@@ -98,13 +98,13 @@
 
 ### Tests for User Story 3
 
-- [ ] T024 [US3] Write failing Pilot test `test_error_recovery_flow` in `tests/test_tui.py`: mock orchestrator to raise `Exception("bad file")`, assert `SummaryScreen` shows error message text (no traceback), `r` key switches to `FilePickerScreen`, `s` key switches to `WelcomeScreen`, "Try Again" button also works via click
+- [X] T024 [US3] Write failing Pilot test `test_error_recovery_flow` in `tests/test_tui.py`: mock orchestrator to raise `Exception("bad file")`, assert `SummaryScreen` shows error message text (no traceback), `r` key switches to `FilePickerScreen`, `s` key switches to `WelcomeScreen`, "Try Again" button also works via click
 
 ### Implementation for User Story 3
 
-- [ ] T025 [US3] Add exception handler in `ProgressScreen._run_conversion()` in `tui/screens/progress.py`: wrap all orchestrator calls in `try/except Exception as e`, record `source_path.stat().st_size` before running, verify size unchanged after exception, produce `ConversionResult(success=False, error_message=plain_english(e))` and call `self.app.switch_screen(SummaryScreen(result))` (no traceback in message — SC-004)
-- [ ] T026 [US3] Implement `SummaryScreen` error view in `tui/screens/summary.py`: conditionally render error `Label` when `result.success == False`, add "Try Again" button that calls `self.app.switch_screen(FilePickerScreen(original_type))` (store `original_type` in result or pass separately), add "Start Over" button calling `self.app.switch_screen(WelcomeScreen())`, extend `BINDINGS` with `r` (try again) and `s` (start over) per `specs/001-textual-tui/contracts/keyboard-nav.md`
-- [ ] T027 [US3] Add empty-directory guard in `FilePickerScreen` in `tui/screens/file_picker.py`: disable "Select This File" button when no file is highlighted in `DirectoryTree`, show a dimmed `Label` "No matching files in this folder" if the tree has no visible leaf nodes matching the filter
+- [X] T025 [US3] Add exception handler in `ProgressScreen._run_conversion()` in `tui/screens/progress.py`: wrap all orchestrator calls in `try/except Exception as e`, record `source_path.stat().st_size` before running, verify size unchanged after exception, produce `ConversionResult(success=False, error_message=plain_english(e))` and call `self.app.switch_screen(SummaryScreen(result))` (no traceback in message — SC-004)
+- [X] T026 [US3] Implement `SummaryScreen` error view in `tui/screens/summary.py`: conditionally render error `Label` when `result.success == False`, add "Try Again" button that calls `self.app.switch_screen(FilePickerScreen(original_type))` (store `original_type` in result or pass separately), add "Start Over" button calling `self.app.switch_screen(WelcomeScreen())`, extend `BINDINGS` with `r` (try again) and `s` (start over) per `specs/001-textual-tui/contracts/keyboard-nav.md`
+- [X] T027 [US3] Add empty-directory guard in `FilePickerScreen` in `tui/screens/file_picker.py`: disable "Select This File" button when no file is highlighted in `DirectoryTree`, show a dimmed `Label` "No matching files in this folder" if the tree has no visible leaf nodes matching the filter
 
 **Checkpoint**: All three user stories are independently functional and testable. `pytest tests/test_tui.py` passes in full.
 
@@ -114,10 +114,10 @@
 
 **Purpose**: Final validation, keyboard contract audit, and constitution amendment.
 
-- [ ] T028 [P] Run complete test suite `pytest tests/` and confirm all pipeline tests and TUI tests pass together (no regressions from sign-inversion fix or screen imports)
-- [ ] T029 [P] Walk through `specs/001-textual-tui/quickstart.md` step-by-step with `python -m tui` using a real BAC CSV and a real Davi XLS to validate the user-facing narrative matches actual behavior
-- [ ] T030 [P] Audit keyboard bindings: verify every key listed in `specs/001-textual-tui/contracts/keyboard-nav.md` has a matching `BINDINGS` entry in the correct screen class (`welcome.py`, `file_picker.py`, `progress.py`, `summary.py`); confirm footer legend renders them
-- [ ] T031 Add a PATCH amendment to the project constitution documenting Python 3.9+ minimum and Textual as an allowed terminal UI framework, per the justified deviations in `specs/001-textual-tui/plan.md` § "Constitution Check"
+- [X] T028 [P] Run complete test suite `pytest tests/` and confirm all pipeline tests and TUI tests pass together (no regressions from sign-inversion fix or screen imports)
+- [X] T029 [P] Walk through `specs/001-textual-tui/quickstart.md` step-by-step with `python -m tui` using a real BAC CSV and a real Davi XLS to validate the user-facing narrative matches actual behavior
+- [X] T030 [P] Audit keyboard bindings: verify every key listed in `specs/001-textual-tui/contracts/keyboard-nav.md` has a matching `BINDINGS` entry in the correct screen class (`welcome.py`, `file_picker.py`, `progress.py`, `summary.py`); confirm footer legend renders them
+- [X] T031 Add a PATCH amendment to the project constitution documenting Python 3.9+ minimum and Textual as an allowed terminal UI framework, per the justified deviations in `specs/001-textual-tui/plan.md` § "Constitution Check"
 
 ---
 
