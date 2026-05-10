@@ -11,19 +11,19 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent / 'scripts'))
 
 from conftest import (
-    DATA_DIR, parse_csv_rows, parse_ynab_rows, assert_rows_match, parse_date_tuple,
+    FIXTURES_DIR, parse_csv_rows, parse_ynab_rows, assert_rows_match, parse_date_tuple,
 )
 import davi_stage1
 import davi_stage2
 import davi_stage3
 
 
-INPUT_FILE = DATA_DIR / 'DaviBank Visa-in.xls'
-EXPECTED_OUT1 = DATA_DIR / 'DaviBank Visa-out1.csv'
-EXPECTED_OUT2_CRC = DATA_DIR / 'DaviBank Visa-out2-crc.csv'
-EXPECTED_OUT2_USD = DATA_DIR / 'DaviBank Visa-out2-usd.csv'
-EXPECTED_OUT3_CRC = DATA_DIR / 'DaviBank Visa-out3-crc.csv'
-EXPECTED_OUT3_USD = DATA_DIR / 'DaviBank Visa-out3-usd.csv'
+INPUT_FILE = FIXTURES_DIR / 'DaviBank Sample-in.xls'
+EXPECTED_OUT1 = FIXTURES_DIR / 'DaviBank Sample-out1.csv'
+EXPECTED_OUT2_CRC = FIXTURES_DIR / 'DaviBank Sample-out2-crc.csv'
+EXPECTED_OUT2_USD = FIXTURES_DIR / 'DaviBank Sample-out2-usd.csv'
+EXPECTED_OUT3_CRC = FIXTURES_DIR / 'DaviBank Sample-out3-crc.csv'
+EXPECTED_OUT3_USD = FIXTURES_DIR / 'DaviBank Sample-out3-usd.csv'
 
 
 def parse_davi_rows(path):

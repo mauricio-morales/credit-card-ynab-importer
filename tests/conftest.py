@@ -6,13 +6,13 @@ from pathlib import Path
 
 import pytest
 
-DATA_DIR = Path(__file__).parent.parent / 'data'
+FIXTURES_DIR = Path(__file__).parent / 'fixtures'
 SCRIPTS_DIR = Path(__file__).parent.parent / 'scripts'
 
 
 @pytest.fixture
-def data_dir():
-    return DATA_DIR
+def fixtures_dir():
+    return FIXTURES_DIR
 
 
 @pytest.fixture

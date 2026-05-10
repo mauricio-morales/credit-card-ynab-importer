@@ -1,2 +1,4 @@
 xlrd>=2.0.1
 pytest>=7.0
+# only needed to regenerate fixtures (scripts/generate_fixtures.py):
+xlwt>=1.3

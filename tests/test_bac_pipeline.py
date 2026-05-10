@@ -13,19 +13,19 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent / 'scripts'))
 
 from conftest import (
-    DATA_DIR, parse_csv_rows, parse_ynab_rows, assert_rows_match, parse_date_tuple,
+    FIXTURES_DIR, parse_csv_rows, parse_ynab_rows, assert_rows_match, parse_date_tuple,
 )
 import bac_stage1
 import bac_stage2
 import bac_stage3
 
 
-INPUT_FILE = DATA_DIR / 'BAC MCB Febrero-in.csv'
-EXPECTED_OUT1 = DATA_DIR / 'BAC MCB Febrero-out1.csv'
-EXPECTED_OUT2_CRC = DATA_DIR / 'BAC MCB Febrero-out2-crc.csv'
-EXPECTED_OUT2_USD = DATA_DIR / 'BAC MCB Febrero-out2-usd.csv'
-EXPECTED_OUT3_CRC = DATA_DIR / 'BAC MCB Febrero-out3-crc.csv'
-EXPECTED_OUT3_USD = DATA_DIR / 'BAC MCB Febrero-out3-usd.csv'
+INPUT_FILE = FIXTURES_DIR / 'BAC Sample-in.csv'
+EXPECTED_OUT1 = FIXTURES_DIR / 'BAC Sample-out1.csv'
+EXPECTED_OUT2_CRC = FIXTURES_DIR / 'BAC Sample-out2-crc.csv'
+EXPECTED_OUT2_USD = FIXTURES_DIR / 'BAC Sample-out2-usd.csv'
+EXPECTED_OUT3_CRC = FIXTURES_DIR / 'BAC Sample-out3-crc.csv'
+EXPECTED_OUT3_USD = FIXTURES_DIR / 'BAC Sample-out3-usd.csv'
 
 
 class TestBACStage1:
@@ -42,7 +42,7 @@ class TestBACStage1:
         with open(out) as f:
             content = f.read()
         assert 'Pro000000000000duct' not in content
-        assert 'MAURICIO/MORALES ZUMBADO' not in content
+        assert 'SAMPLE/USER FIXTURE' not in content
 
     def test_no_previous_balance(self, tmp_out):
         out = tmp_out('out1.csv')
@@ -66,10 +66,10 @@ class TestBACStage1:
         bac_stage1.process(INPUT_FILE, out)
         with open(out) as f:
             content = f.read()
-        assert '5466-37**-****-7287' in content
-        assert '5466-37**-****-2972' in content
-        assert '5466-37**-****-6469' in content
-        assert '5466-37**-****-7619' in content
+        assert '5466-37**-****-1002' in content
+        assert '5466-37**-****-1003' in content
+        assert '5466-37**-****-1004' in content
+        assert '5466-37**-****-1001' in content
 
     def test_number_formatting(self, tmp_out):
         out = tmp_out('out1.csv')
