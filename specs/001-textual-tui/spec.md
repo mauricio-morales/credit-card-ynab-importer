@@ -82,6 +82,7 @@ A user accidentally selects the wrong file type or a malformed file. The tool in
 - **FR-010**: If conversion fails or the file is unreadable, the tool MUST display a descriptive error message and allow the user to select a different file without restarting.
 - **FR-011**: The tool MUST be navigable entirely via keyboard in addition to mouse/pointer input.
 - **FR-012**: The tool MUST NOT modify or delete the original source file at any point.
+- **FR-013**: Amount signs MUST be inverted in Stage 3 output — a positive amount in the source file (a purchase/charge, representing money owed) MUST become a negative amount in the YNAB CSV (outflow), and a negative amount in the source file (a payment or refund) MUST become a positive amount in the YNAB CSV (inflow). This applies to both the BAC and DaviBank/Scotia pipelines.
 
 ### Key Entities
 
@@ -94,14 +95,14 @@ A user accidentally selects the wrong file type or a malformed file. The tool in
 ### Measurable Outcomes
 
 - **SC-001**: A user can go from launching the tool to having a YNAB-ready output file in under 60 seconds for a typical statement (up to 200 transactions).
-- **SC-002**: All conversion results currently produced by the existing command-line scripts are preserved exactly — no data loss or format regression.
+- **SC-002**: The YNAB output files are importable into YNAB without manual correction — dates are in `YYYY/MM/DD` format, all amounts are sign-inverted (charges negative, payments positive), and no transactions are lost or reordered.
 - **SC-003**: A user unfamiliar with the existing scripts can successfully complete a conversion on their first attempt without consulting documentation.
 - **SC-004**: Error messages are specific enough that the user understands what went wrong and what to do next, without technical jargon.
 - **SC-005**: The tool can be fully operated using only the keyboard (no mouse required).
 
 ## Assumptions
 
-- The existing BAC CSV and Davi/Scotia XLS processing logic is correct and will be reused without modification; the TUI wraps it rather than replacing it.
+- The existing BAC CSV and Davi/Scotia XLS processing logic for Stages 1 and 2 is correct and will be reused without modification. Stage 3 (`bac_stage3.py`, `davi_stage3.py`) requires a sign-inversion fix (FR-013) before the output is YNAB-importable; this fix is in scope for this feature.
 - The tool runs on macOS (the user's platform) but should not use macOS-specific APIs that would prevent future cross-platform use.
 - A single user operates the tool at a time; no multi-user or concurrent-access scenarios are in scope.
 - The output file is always placed in the same directory as the source file; no option to choose a different output location is required for this version.
