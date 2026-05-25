@@ -32,7 +32,7 @@ class FilePickerScreen(Screen):
         if conversion_type == ConversionType.BAC:
             self._extensions = {".csv"}
         else:
-            self._extensions = {".xls", ".xlsx"}
+            self._extensions = {".xls"}
         self._selected_path: Path | None = None
 
     def compose(self) -> ComposeResult:

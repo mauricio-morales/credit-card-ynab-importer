@@ -68,7 +68,7 @@ python3 scripts/orchestrator.py <file1> [file2 ...]
 The script auto-detects the bank from the file extension:
 
 - `.csv` → BAC pipeline
-- `.xls` → DaviBank pipeline
+- `.xls` → Davi/Scotia pipeline
 
 ### BAC — process a single month
 
