@@ -30,11 +30,12 @@ A user navigates to the "Monthly Overspend Cascade" feature for the first time. 
 
 1. **Given** the user opens the app with no YNAB credentials configured, **When** they use only the CSV conversion feature, **Then** no YNAB wizard or prompt is shown at any point.
 2. **Given** the user navigates to the cascade feature with no YNAB credentials configured, **When** the feature screen opens, **Then** the YNAB setup wizard is shown before any carryover data is loaded.
-3. **Given** the wizard is displayed, **When** the user enters a valid YNAB API key and submits, **Then** the app fetches the user's YNAB accounts and presents them by name for selection.
-4. **Given** the account list is displayed, **When** the user selects the internal loan account, **Then** the account's unique ID (not its display name) is saved to the local configuration file.
-5. **Given** the wizard is completed, **When** the user is returned to the cascade feature screen, **Then** a configuration file exists containing the API key, budget ID, and internal loan account ID; the wizard does not appear again.
-6. **Given** the user enters an invalid or expired API key, **When** attempting to fetch accounts, **Then** a descriptive error is shown and the user can correct the key without restarting.
-7. **Given** the YNAB service is unreachable during setup, **When** the user submits the API key, **Then** an error is shown with a retry option; no partial configuration is saved.
+3. **Given** the wizard is displayed, **When** the user enters a valid YNAB API key and submits, **Then** the app fetches the user's YNAB budgets and presents them by name for selection.
+4. **Given** the budget list is displayed, **When** the user selects a budget, **Then** the app fetches the accounts for that budget and presents them by name for loan account selection.
+5. **Given** the account list is displayed, **When** the user selects the internal loan account, **Then** the budget ID, budget name, and account ID (not its display name) are saved as a new per-budget entry in the local configuration file.
+6. **Given** the wizard is completed for one budget, **When** the user returns to the cascade feature for a different budget, **Then** the wizard skips the API key step (key already stored) and shows only the budget selection and loan account steps for the new budget.
+7. **Given** the user enters an invalid or expired API key, **When** attempting to fetch budgets, **Then** a descriptive error is shown and the user can correct the key without restarting.
+8. **Given** the YNAB service is unreachable during setup, **When** the user submits the API key, **Then** an error is shown with a retry option; no partial configuration is saved.
 
 ---
 
@@ -120,12 +121,12 @@ A user who needs to update their YNAB API key or switch to a different internal 
 ### Functional Requirements
 
 - **FR-001**: System MUST NOT require YNAB credentials to launch or to use CSV file conversion functionality.
-- **FR-002**: System MUST prompt for YNAB credentials only when the user first navigates to the cascade feature and no credentials are stored.
+- **FR-002**: System MUST prompt for setup when the user navigates to the cascade feature and either (a) no API key is stored, or (b) an API key is stored but the selected budget has not yet been configured with a loan account.
 - **FR-003**: YNAB credentials wizard MUST validate the API key with a live YNAB request before accepting it.
-- **FR-004**: YNAB credentials wizard MUST fetch the user's accounts from YNAB and allow selection by name, storing the account's ID (not name) in the local configuration file.
-- **FR-005**: YNAB credentials wizard MUST store the budget ID along with the API key and account ID so all subsequent requests are scoped to the correct budget.
+- **FR-004**: YNAB credentials wizard MUST present the user's YNAB budgets for selection; after a budget is chosen, it MUST fetch that budget's accounts and allow loan account selection by name, storing the account's ID (not name) in the local configuration file under that budget's entry.
+- **FR-005**: The configuration file MUST store the API key once (globally) and a per-budget map keyed by budget ID, where each entry holds the budget's display name and its configured loan account ID. Each budget's cascade session is fully scoped to that budget's entry.
 - **FR-006**: Configuration file MUST be excluded from version control and MUST NOT be committed to the repository.
-- **FR-007**: Before performing any scan, system MUST verify that all transactions in the lookback window are in a cleared or reconciled state; if any uncleared transactions exist, the cascade MUST be blocked and the screen MUST list the affected account names so the user knows what to reconcile.
+- **FR-007**: Before performing any scan, system MUST verify that all transactions in the lookback window, in all accounts **except the internal loan account**, are in a reconciled state (YNAB status R). Cleared (C) and uncleared (U) transactions both block the cascade. If any non-reconciled transactions exist, the cascade MUST be blocked and the screen MUST list each affected account name and the count of non-reconciled transactions in that account, so the user knows exactly what to reconcile before retrying.
 - **FR-008**: System MUST exclude all credit card payment categories from scan results and cascade operations; these categories MUST never appear as carryover candidates regardless of their balance.
 - **FR-009**: Cascade feature screen MUST scan the last three calendar months by default and display all qualifying months (months with at least one negative non-credit-card category), grouped by month, ordered oldest-first.
 - **FR-010**: Each displayed negative category MUST show the category name, group name, and carryover amount as a positive value.
@@ -135,15 +136,15 @@ A user who needs to update their YNAB API key or switch to a different internal 
 - **FR-014**: System MUST automatically select donor categories without requiring user input; donor selection is part of plan computation, not a separate user action.
 - **FR-015**: When selecting a donor for a deficit, system MUST first attempt to find a single category whose available balance covers the entire deficit amount.
 - **FR-016**: When no single category can cover a deficit, system MUST split coverage across multiple donors, drawing from each in descending balance order until the full deficit is covered.
-- **FR-017**: System MUST support donor-splitting at the sub-category level: a single negative category's deficit may be partially funded by each of several donors, with each donor contributing a separate transaction pair.
+- **FR-017**: All negative categories and all donors for a given month MUST be bundled into a single SPLIT Transaction A and a single SPLIT Transaction B; each category and each donor contributes exactly one sub-transaction within these splits.
 - **FR-018**: System MUST process months in chronological order, oldest first; the user cannot skip ahead to a later month without completing or explicitly skipping the current one.
-- **FR-019**: For each donor allocation in a step, system MUST create Transaction A in the internal loan account dated the last day of the source month, assigned to that donor category, for the donor's contribution amount.
-- **FR-020**: For each donor allocation in a step, system MUST create the corresponding Transaction B in the internal loan account dated the first day of the following month, assigned to the negative (carryover) category, for the same contribution amount.
-- **FR-021**: All Transaction A and Transaction B pairs for a single donor allocation MUST be atomic: if either fails, neither is left persisted in YNAB. For a multi-donor step, each donor allocation is atomic independently; a failed allocation does not roll back allocations already committed for the same category.
-- **FR-022**: System MUST show execution progress within each month's step and report which donor allocations succeeded and which failed before advancing to the next month.
-- **FR-023**: System MUST allow the user to retry failed donor allocations within the current month without re-executing already-completed allocations for that month.
-- **FR-024**: System MUST warn before executing a month if it detects existing transactions suggesting a carryover for the same category and month was already performed.
-- **FR-025**: A Settings screen MUST be accessible from the main navigation and MUST allow updating the YNAB API key and internal loan account.
+- **FR-019**: For each month step, system MUST create one split Transaction A in the internal loan account dated the last day of the source month. Transaction A MUST contain: one negative sub-transaction per donor category (amount = that donor's total contribution, assigned to the donor's category) and one positive sub-transaction per carryover category (amount = the deficit being carried forward, assigned to that category). The sum of all sub-transaction amounts MUST equal zero.
+- **FR-020**: For each month step, system MUST create one split Transaction B in the internal loan account dated the first day of the following month. Transaction B MUST be the exact sign-inverse of Transaction A: every sub-transaction keeps its category assignment, and its amount is negated. The sum of all sub-transaction amounts in Transaction B MUST also equal zero.
+- **FR-021**: Transaction A and Transaction B for a given month are an atomic pair. If Transaction B fails after Transaction A has been successfully created, the system MUST delete Transaction A before reporting the failure. There is exactly one A+B pair per month; no partial state is left in YNAB.
+- **FR-022**: System MUST show execution progress within each month's step: the creation status of Transaction A, the creation status of Transaction B, and the final outcome (success or failure with reason) before advancing to the next month.
+- **FR-023**: System MUST allow the user to retry a failed month execution. If Transaction A was created before the failure occurred, it MUST be deleted before the retry begins, so execution always starts from a clean state.
+- **FR-024**: ~~Removed.~~ Duplicate carryover detection is not implemented. If a month still shows a negative balance after a prior carryover (because new transactions arrived), the correct response is to create another carryover transaction, not to warn or block. The cascade operates on the current YNAB state; if the balance is negative, it needs fixing regardless of prior history.
+- **FR-025**: A Settings screen MUST be accessible from the main navigation and MUST allow updating the YNAB API key and, per configured budget, updating or removing the associated loan account.
 - **FR-026**: System MUST display clear, actionable error messages for all YNAB connectivity failures, with a retry option.
 
 ### Key Entities
@@ -158,7 +159,7 @@ A user who needs to update their YNAB API key or switch to a different internal 
 - **Carryover Tuplet**: The complete set of donor allocations for a single negative category and month. If one donor covers the full deficit, the tuplet contains one allocation (two transactions). If multiple donors are needed, the tuplet contains one allocation per donor (two transactions each).
 - **Cascade Plan**: The month-by-month sequence of carryover tuplets processed one month at a time. Each month's plan is computed immediately before that month's summary is shown; carry-forward amounts from month M are incorporated into month M+1's plan after M's execution completes.
 - **Donor Category**: Any budget category with available balance that the system automatically selects to fund one or more carryover allocations. A donor does not need to cover any full deficit on its own; it may contribute a partial amount as part of a multi-donor split.
-- **Configuration**: A local, non-committed file storing: YNAB API key, budget ID, and internal loan account ID.
+- **Configuration**: A local, non-committed file storing: the YNAB API key (global, shared across all budgets) and a per-budget map where each entry is keyed by budget ID and holds the budget's display name and its configured internal loan account ID.
 
 ---
 
@@ -179,16 +180,16 @@ A user who needs to update their YNAB API key or switch to a different internal 
 
 ## Assumptions
 
-- The user operates a single active YNAB budget; multi-budget selection is out of scope for this feature.
+- The user may have multiple YNAB budgets (e.g., one in CRC, one in USD). Each budget has its own independent configuration — specifically its own internal loan account, which will have a different ID across budgets and possibly a different name. The API key is shared across all budgets. Configuration is stored per-budget keyed by budget ID.
 - The internal loan account already exists in YNAB before setup is run; account creation within the app is out of scope.
 - Authentication uses a YNAB Personal Access Token; OAuth2 application flow is out of scope.
 - The local configuration file is stored in the user's home config directory (platform-standard) or the app's working directory; the exact path is an implementation decision.
 - The lookback window defaults to the last three complete calendar months; extending this beyond three months is a configuration option, not a primary workflow.
 - "Last day of the source month" and "first day of the following month" are computed from the calendar boundaries of the month being corrected, not from the system clock's current date.
 - Donor categories are selected automatically by the system; no user interaction is required to choose them. The system uses whatever categories have available balance, prioritizing those with the largest balance first.
-- The cascade plan is computed offline (without additional YNAB requests) by simulating the carry-forward effects on the data already loaded during the scan.
+- After executing each month's transactions, the system re-fetches all remaining months from YNAB before computing the next month's plan. YNAB is the source of truth at every step. The initial scan data is retained only for carry-forward labeling (to mark categories that were not negative in the original scan but became negative after a prior month's fix).
 - This feature extends the existing terminal UI (Textual TUI); no web, mobile, or separate desktop GUI is in scope.
 - YNAB API currency values are in milliunits (1,000 milliunits = $1.00); the UI displays human-readable currency values throughout.
 - The user is solely responsible for ensuring that the donor category used does not disrupt their own budget intent; the app only warns when balance is insufficient, it does not enforce budget rules.
 - Credit card payment categories are identified by a YNAB-specific designation (category group type or flag); the exact mechanism is an implementation detail, but the exclusion is unconditional — no credit card payment category is ever a carryover candidate.
-- "Uncleared" means a transaction with YNAB status U (uncleared/pending); cleared (C) and reconciled (R) statuses are both acceptable for the cascade to proceed. The clearance check covers all accounts in the lookback window, not only those with negative categories.
+- The clearance check requires YNAB status R (reconciled) for all transactions in non-loan accounts within the lookback window. Status C (cleared) and status U (uncleared) both block the cascade. The internal loan account is excluded from the check because the cascade itself creates cleared transactions there during execution; requiring those to be reconciled before processing subsequent months would make the tool self-blocking.
