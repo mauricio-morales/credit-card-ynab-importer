@@ -12,6 +12,8 @@ The user has discovered a manual technique that achieves this: a "carryover tupl
 
 This feature automates that cascading correction workflow. It also introduces the configuration infrastructure (YNAB API credentials and internal loan account selection) required to interact with YNAB — but only prompts for that configuration the first time the user attempts to use this feature. Existing functionality (CSV file conversion) continues to work without any YNAB credentials.
 
+Two hard constraints govern when and what the cascade operates on. First, the cascade must never touch credit card payment categories. These special YNAB categories may show a negative balance as a downstream reflection of overspending in regular categories; once the real categories are corrected, the credit card balance corrects itself automatically. Attempting to apply a carryover tuplet to a credit card payment category would break that self-correction. Second, the cascade must only run when all transactions in the lookback window are fully cleared or reconciled. Uncleared transactions represent spending whose final categorization is not yet known; running the cascade over them risks producing carryover tuplets for negative balances that would vanish once those transactions clear — especially on credit card accounts where pending transactions frequently cause temporary apparent deficits.
+
 ---
 
 ## User Scenarios & Testing *(mandatory)*
@@ -38,19 +40,22 @@ A user navigates to the "Monthly Overspend Cascade" feature for the first time. 
 
 ### User Story 2 — Scan Past Months for Negative Categories (Priority: P1)
 
-With YNAB credentials configured, the user opens the cascade feature and the app scans the last several months of budget history. It identifies every month in the lookback window that has one or more categories with a negative available balance and displays them grouped by month, ordered from oldest to most recent. The user sees at a glance which months need correction and by how much.
+With YNAB credentials configured, the user opens the cascade feature. Before displaying any category data, the app checks that all transactions in the lookback window are in a cleared or reconciled state. If any uncleared transactions are found, the cascade is blocked and the user is shown which accounts have pending transactions so they can reconcile in YNAB before retrying. Only once the clearance check passes does the app scan the lookback window for negative categories, automatically excluding credit card payment categories from results entirely.
 
-**Why this priority**: This scan is the analytical foundation. Without it the user cannot know what needs fixing or in what order.
+**Why this priority**: Both the clearance check and the credit card exclusion are mandatory gates. A scan that runs over uncleared data will produce false negative balances (especially on credit cards), and including credit card payment categories in the cascade would break their automatic self-correction.
 
-**Independent Test**: With a YNAB budget containing known negative categories in February, April, and a zero balance in March, verify the scan shows February and April as needing correction, shows March as clean, and displays each negative category with its correct amount.
+**Independent Test**: (a) With an uncleared transaction in any account within the lookback window, verify the cascade is blocked and the affected account is named. (b) With all transactions cleared, verify the scan results include no credit card payment categories even if they have negative balances. (c) With known negative regular categories in February and April, verify those appear correctly.
 
 **Acceptance Scenarios**:
 
-1. **Given** YNAB credentials are configured, **When** the cascade feature screen loads, **Then** the app scans the last three calendar months and displays any months with negative categories, grouped and ordered oldest-to-most-recent.
-2. **Given** negative categories are found in multiple months, **When** the results are displayed, **Then** each month section lists the affected category names, their group names, and the carryover amount (shown as a positive value).
-3. **Given** a month in the lookback window has no negative categories, **When** displayed, **Then** that month is either omitted or marked clearly as "no issues found."
-4. **Given** no months in the lookback window have any negative categories, **When** the screen loads, **Then** a message confirms the budget history is clean and no action is needed.
-5. **Given** the YNAB service is unreachable, **When** the scan is attempted, **Then** an error message is shown with a retry option; no stale data is shown silently.
+1. **Given** YNAB credentials are configured, **When** the cascade feature screen loads, **Then** the app checks all accounts in the lookback window for uncleared transactions before showing any scan results.
+2. **Given** one or more accounts have uncleared transactions in the lookback window, **When** the check runs, **Then** the cascade is blocked, the screen shows which accounts have uncleared transactions, and the user is prompted to reconcile those accounts in YNAB before proceeding.
+3. **Given** the user has reconciled their accounts and retries, **When** all transactions are cleared or reconciled, **Then** the clearance check passes and the scan proceeds.
+4. **Given** all transactions are cleared and the scan runs, **When** results are displayed, **Then** credit card payment categories are never shown, even if they have a negative balance.
+5. **Given** all transactions are cleared and the scan runs, **When** results are displayed, **Then** all non-credit-card categories with a negative balance in the lookback window are listed, grouped by month, ordered oldest-to-most-recent, each showing category name, group name, and carryover amount as a positive value.
+6. **Given** a month in the lookback window has no negative non-credit-card categories, **When** displayed, **Then** that month is omitted or marked as "no issues found."
+7. **Given** no months in the lookback window have any qualifying negative categories, **When** the screen loads, **Then** a message confirms the budget history is clean and no action is needed.
+8. **Given** the YNAB service is unreachable, **When** the scan is attempted, **Then** an error message is shown with a retry option; no stale data is shown silently.
 
 ---
 
@@ -114,6 +119,8 @@ A user who needs to update their YNAB API key or switch to a different internal 
 ### Edge Cases
 
 - What if fixing February's negatives causes a March category to go negative — but March has already been partially fixed in a prior run?
+- What if a transaction clears between the clearance check and the moment execution is triggered — should the check be re-run at execution time?
+- What if a credit card payment category is negative for a reason unrelated to overspending (e.g., a manual adjustment) — should the exclusion rule still apply unconditionally?
 - What happens when a negative category is deleted in YNAB between when the scan runs and when execution is triggered?
 - What if two categories in the same month have the same name but belong to different groups?
 - What if the internal loan account is deleted from YNAB after it was saved in the configuration?
@@ -137,29 +144,33 @@ A user who needs to update their YNAB API key or switch to a different internal 
 - **FR-004**: YNAB credentials wizard MUST fetch the user's accounts from YNAB and allow selection by name, storing the account's ID (not name) in the local configuration file.
 - **FR-005**: YNAB credentials wizard MUST store the budget ID along with the API key and account ID so all subsequent requests are scoped to the correct budget.
 - **FR-006**: Configuration file MUST be excluded from version control and MUST NOT be committed to the repository.
-- **FR-007**: Cascade feature screen MUST scan the last three calendar months by default and display all months with negative categories, grouped by month, ordered oldest-first.
-- **FR-008**: Each displayed negative category MUST show the category name, group name, and carryover amount as a positive value.
-- **FR-009**: System MUST compute a full cascade plan before any transactions are created, simulating the carry-forward effect month by month so that all necessary tuplets (including those induced by earlier months' fixes) are identified up front.
-- **FR-010**: Cascade plan MUST be presented to the user for review before any transactions are submitted to YNAB; the plan MUST show auto-assigned donors for every step.
-- **FR-011**: System MUST automatically select donor categories without requiring user input; donor selection is part of plan computation, not a separate user action.
-- **FR-012**: When selecting a donor for a deficit, system MUST first attempt to find a single category whose available balance covers the entire deficit amount.
-- **FR-013**: When no single category can cover a deficit, system MUST split coverage across multiple donors, drawing from each in descending balance order until the full deficit is covered.
-- **FR-014**: System MUST support donor-splitting at the sub-category level: a single negative category's deficit may be partially funded by each of several donors, with each donor contributing a separate transaction pair.
-- **FR-015**: System MUST execute the cascade plan in chronological order, oldest month first.
-- **FR-016**: For each donor allocation in a step, system MUST create Transaction A in the internal loan account dated the last day of the source month, assigned to that donor category, for the donor's contribution amount.
-- **FR-017**: For each donor allocation in a step, system MUST create the corresponding Transaction B in the internal loan account dated the first day of the following month, assigned to the negative (carryover) category, for the same contribution amount.
-- **FR-018**: All Transaction A and Transaction B pairs for a single donor allocation MUST be atomic: if either fails, neither is left persisted in YNAB. For a multi-donor step, each donor allocation is atomic independently; a failed allocation does not roll back allocations already committed for the same category.
-- **FR-019**: System MUST show execution progress step by step and report which donor allocations succeeded and which failed.
-- **FR-020**: System MUST allow the user to retry a failed donor allocation without re-executing already-completed allocations.
-- **FR-021**: System MUST warn before executing if it detects existing transactions suggesting a carryover for the same category and month was already performed.
-- **FR-022**: A Settings screen MUST be accessible from the main navigation and MUST allow updating the YNAB API key and internal loan account.
-- **FR-023**: System MUST display clear, actionable error messages for all YNAB connectivity failures, with a retry option.
+- **FR-007**: Before performing any scan, system MUST verify that all transactions in the lookback window are in a cleared or reconciled state; if any uncleared transactions exist, the cascade MUST be blocked and the screen MUST list the affected account names so the user knows what to reconcile.
+- **FR-008**: System MUST exclude all credit card payment categories from scan results and cascade operations; these categories MUST never appear as carryover candidates regardless of their balance.
+- **FR-009**: Cascade feature screen MUST scan the last three calendar months by default and display all qualifying months (months with at least one negative non-credit-card category), grouped by month, ordered oldest-first.
+- **FR-010**: Each displayed negative category MUST show the category name, group name, and carryover amount as a positive value.
+- **FR-011**: System MUST compute a full cascade plan before any transactions are created, simulating the carry-forward effect month by month so that all necessary tuplets (including those induced by earlier months' fixes) are identified up front.
+- **FR-012**: Cascade plan MUST be presented to the user for review before any transactions are submitted to YNAB; the plan MUST show auto-assigned donors for every step.
+- **FR-013**: System MUST automatically select donor categories without requiring user input; donor selection is part of plan computation, not a separate user action.
+- **FR-014**: When selecting a donor for a deficit, system MUST first attempt to find a single category whose available balance covers the entire deficit amount.
+- **FR-015**: When no single category can cover a deficit, system MUST split coverage across multiple donors, drawing from each in descending balance order until the full deficit is covered.
+- **FR-016**: System MUST support donor-splitting at the sub-category level: a single negative category's deficit may be partially funded by each of several donors, with each donor contributing a separate transaction pair.
+- **FR-017**: System MUST execute the cascade plan in chronological order, oldest month first.
+- **FR-018**: For each donor allocation in a step, system MUST create Transaction A in the internal loan account dated the last day of the source month, assigned to that donor category, for the donor's contribution amount.
+- **FR-019**: For each donor allocation in a step, system MUST create the corresponding Transaction B in the internal loan account dated the first day of the following month, assigned to the negative (carryover) category, for the same contribution amount.
+- **FR-020**: All Transaction A and Transaction B pairs for a single donor allocation MUST be atomic: if either fails, neither is left persisted in YNAB. For a multi-donor step, each donor allocation is atomic independently; a failed allocation does not roll back allocations already committed for the same category.
+- **FR-021**: System MUST show execution progress step by step and report which donor allocations succeeded and which failed.
+- **FR-022**: System MUST allow the user to retry a failed donor allocation without re-executing already-completed allocations.
+- **FR-023**: System MUST warn before executing if it detects existing transactions suggesting a carryover for the same category and month was already performed.
+- **FR-024**: A Settings screen MUST be accessible from the main navigation and MUST allow updating the YNAB API key and internal loan account.
+- **FR-025**: System MUST display clear, actionable error messages for all YNAB connectivity failures, with a retry option.
 
 ### Key Entities
 
 - **Budget**: The user's top-level YNAB financial plan. Has a unique ID and display name. All categories and accounts belong to a budget.
 - **Category**: A budget allocation line item with a name, a parent group name, and a monthly available balance. Balance may be negative when more was spent than allocated.
 - **Category Group**: A named collection of related categories (e.g., "Transportation" containing "Gas", "Parking").
+- **Credit Card Payment Category**: A special system-managed category automatically created by YNAB for each credit card account. Its balance reflects what is owed to the card and adjusts automatically when other categories are corrected. These categories are always excluded from cascade operations.
+- **Transaction Clearance State**: Whether a transaction is uncleared (pending, final category not confirmed), cleared (confirmed by the user or imported), or reconciled (locked after account reconciliation). The cascade requires all transactions in the lookback window to be in the cleared or reconciled state before it may run.
 - **Internal Loan Account**: A YNAB account not linked to any real bank account, used exclusively to record carryover transactions. Identified by its unique ID stored in local config.
 - **Donor Allocation**: A single donor's contribution toward covering a negative category's deficit. Consists of Transaction A (draws from the donor on the last day of the source month) and Transaction B (restores the donor via the carryover category on the first day of the following month). A deficit may require one or more donor allocations to be fully covered.
 - **Carryover Tuplet**: The complete set of donor allocations for a single negative category and month. If one donor covers the full deficit, the tuplet contains one allocation (two transactions). If multiple donors are needed, the tuplet contains one allocation per donor (two transactions each).
@@ -197,3 +208,5 @@ A user who needs to update their YNAB API key or switch to a different internal 
 - This feature extends the existing terminal UI (Textual TUI); no web, mobile, or separate desktop GUI is in scope.
 - YNAB API currency values are in milliunits (1,000 milliunits = $1.00); the UI displays human-readable currency values throughout.
 - The user is solely responsible for ensuring that the donor category used does not disrupt their own budget intent; the app only warns when balance is insufficient, it does not enforce budget rules.
+- Credit card payment categories are identified by a YNAB-specific designation (category group type or flag); the exact mechanism is an implementation detail, but the exclusion is unconditional — no credit card payment category is ever a carryover candidate.
+- "Uncleared" means a transaction with YNAB status U (uncleared/pending); cleared (C) and reconciled (R) statuses are both acceptable for the cascade to proceed. The clearance check covers all accounts in the lookback window, not only those with negative categories.
