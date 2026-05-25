@@ -59,47 +59,28 @@ With YNAB credentials configured, the user opens the cascade feature. Before dis
 
 ---
 
-### User Story 3 — Plan the Cascade (Preview Before Acting) (Priority: P1)
+### User Story 3 — Process the Cascade One Month at a Time (Priority: P1)
 
-Before creating any transactions, the user reviews a complete cascade plan. Because fixing February's negatives will cause new negatives to appear in March (which must then be fixed to push them into April, and so on), the app computes the full chain of tuplets needed to cascade all deficits forward to the current month. The app also automatically assigns donor categories to cover each deficit — choosing whichever categories have sufficient available balance. The user sees the full plan for review and confirmation; no manual donor selection is required.
+Once the scan overview confirms there are months to fix, the user enters a month-by-month wizard. The app starts with the oldest affected month, shows that month's negative categories with their auto-assigned donors, and waits for the user to confirm before creating any transactions. After a successful confirmation and execution, the app advances to the next month — which may now include new negatives induced by the previous month's carry-forwards. This repeats until all months are resolved. The user always sees exactly one month's worth of work before committing to it.
 
-When no single category has enough balance to cover a deficit, the app splits coverage across multiple donors, drawing from each in turn until the full amount is covered. This applies even if a single negative category's deficit is larger than any individual donor's balance — it will be covered by as many donors as needed.
+**Why this priority**: Processing one month at a time is essential for the user to understand and trust what the app is doing. A single large batch is opaque; the month-by-month wizard makes the cascade legible.
 
-**Why this priority**: The cascade must be computed before execution because each month's fix affects the next. Presenting the plan first prevents surprises, and auto-assigning donors removes the main friction point from the workflow.
-
-**Independent Test**: Given known negatives in February and April, with no single donor covering all amounts, verify the plan shows: February tuplets with auto-assigned donors (possibly split across multiple), projected March negatives from the February carry-forward, March tuplets, and April tuplets — all with correct amounts, dates, and donor assignments. Verify that a deficit larger than any single donor's balance is correctly split.
+**Independent Test**: With negatives in February and April, verify: (a) the wizard starts with February, shows its categories and donors, does nothing until confirmed; (b) after February's confirmation and execution, the wizard advances to March, now showing the carry-forwards from February alongside any original March negatives; (c) after March is confirmed and executed, April is shown; (d) after April, a completion summary is shown. Verify a deficit split across multiple donors is correctly displayed and executed per month.
 
 **Acceptance Scenarios**:
 
-1. **Given** the scan shows negative categories in one or more past months, **When** the user initiates the cascade plan, **Then** the app computes and displays the full chain of carryover tuplets needed, one step per month, from oldest to most recent.
-2. **Given** fixing month M creates new negatives in month M+1 (because Transaction B is dated the first day of M+1), **When** the plan is displayed, **Then** those projected M+1 negatives are included in the plan automatically as the next step in the chain.
-3. **Given** the plan is displayed, **When** the user reviews a step, **Then** each step shows: the source month being fixed, the target month receiving the carry-forward, the category name, the carryover amount, and the auto-assigned donor(s) with the amount each donor contributes.
-4. **Given** one donor category has a balance ≥ the full carryover amount for a step, **When** the plan is computed, **Then** that single donor is assigned to cover the step entirely.
-5. **Given** no single donor has a balance ≥ the full carryover amount for a step, **When** the plan is computed, **Then** the app assigns multiple donors, drawing from each in turn (largest available balance first) until the full deficit is covered.
-6. **Given** even the combined balance of all available donor categories is less than the carryover amount, **When** the plan is displayed, **Then** that step is flagged with a warning showing how much can be covered and how much remains uncovered; the user can proceed or skip that step.
-7. **Given** the full plan is reviewed, **When** the user confirms, **Then** the app proceeds to execute all steps in the plan in chronological order (oldest month first).
+1. **Given** the scan overview shows one or more affected months, **When** the user starts the cascade, **Then** the app presents the oldest affected month's summary screen: each negative category, its carryover amount, and the auto-assigned donor(s) with the amount each contributes.
+2. **Given** a month's summary is displayed, **When** reviewing the donor assignments, **Then** the donor auto-assignment rules apply: one donor if sufficient, multiple donors drawn largest-first if not, with a warning if the combined balance still falls short.
+3. **Given** a month's summary is displayed and the user has reviewed it, **When** the user confirms, **Then** the app executes all transaction tuplets for that month only — no transactions for any other month are created at this step.
+4. **Given** a month's transactions are created, **When** execution completes successfully, **Then** the app computes the next month's summary, incorporating any carry-forward amounts from the month just executed, and presents it for review.
+5. **Given** the next month's summary is presented, **When** the user reviews it, **Then** any categories that appear due to carry-forwards from the previous month are visually distinguished from categories that were already negative in that month.
+6. **Given** a month's execution fails for one or more categories, **When** the failure is reported, **Then** the user is shown which categories succeeded and which failed, with a retry option for the failed ones; categories already committed are not re-executed on retry.
+7. **Given** the final month in the cascade is confirmed and executed successfully, **When** complete, **Then** a summary screen is shown listing every month and category processed, and a final scan confirms no qualifying negative categories remain in the lookback window.
+8. **Given** the user wants to stop mid-cascade after completing some months, **When** they exit, **Then** the months already executed remain in YNAB; the user can re-enter the feature later and the remaining months will still be shown.
 
 ---
 
-### User Story 4 — Execute the Cascade (Priority: P2)
-
-After confirming the plan, the app executes all carryover tuplets in order, processing one month at a time from oldest to most recent. For each step it creates Transaction A (last day of the source month) and Transaction B (first day of the next month) in the internal loan account. Progress is shown as each step completes. If any step fails, the user is informed with the option to retry that step without re-doing steps already completed.
-
-**Why this priority**: Execution is the core automation payoff, but it cannot run without the plan step first.
-
-**Independent Test**: Execute a two-month cascade plan (February → March → April) and verify: six transactions appear in YNAB (two per month), correctly dated and categorized; February ends at $0 for affected categories; March ends at $0 for its affected categories (including February carry-forwards); April shows the final carried-forward deficit.
-
-**Acceptance Scenarios**:
-
-1. **Given** the user confirms the plan, **When** execution begins, **Then** the app processes each month in the plan in order from oldest to most recent, showing a progress indicator for each step.
-2. **Given** a step is being executed, **When** transactions are created, **Then** Transaction A is dated the last day of the source month and Transaction B is dated the first day of the following month, both in the configured internal loan account.
-3. **Given** Transactions A and B for a single category must be atomic, **When** Transaction A succeeds but Transaction B fails, **Then** Transaction A is reversed (or deleted) so that no partial tuplet remains in YNAB.
-4. **Given** a step fails after retries, **When** the failure is reported, **Then** previously completed steps are not undone; the user is shown which steps succeeded and which failed, and can retry only the failed step.
-5. **Given** all steps in the plan complete successfully, **When** execution finishes, **Then** a summary is shown listing every category and month processed, and the user is returned to the cascade feature screen where a new scan confirms no negative categories remain in the lookback window.
-
----
-
-### User Story 5 — Settings Management (Priority: P3)
+### User Story 4 — Settings Management (Priority: P3)
 
 A user who needs to update their YNAB API key or switch to a different internal loan account can open the Settings screen from the main navigation at any time. The Settings screen is accessible without disrupting any in-progress cascade session.
 
@@ -118,19 +99,19 @@ A user who needs to update their YNAB API key or switch to a different internal 
 
 ### Edge Cases
 
-- What if fixing February's negatives causes a March category to go negative — but March has already been partially fixed in a prior run?
-- What if a transaction clears between the clearance check and the moment execution is triggered — should the check be re-run at execution time?
-- What if a credit card payment category is negative for a reason unrelated to overspending (e.g., a manual adjustment) — should the exclusion rule still apply unconditionally?
-- What happens when a negative category is deleted in YNAB between when the scan runs and when execution is triggered?
-- What if two categories in the same month have the same name but belong to different groups?
-- What if the internal loan account is deleted from YNAB after it was saved in the configuration?
-- What if the lookback scan reveals negatives from more than six months ago — is there a hard limit on how far back to cascade?
-- What if a carryover amount is extremely small (e.g., -$0.01) — should trivially small negatives be filtered out or shown?
-- What happens when a donor category balance exactly equals the carryover amount (boundary condition — donor is fully drained)?
-- What if a deficit is split across many donors and one of those donor transactions fails mid-execution — how are the partial donor allocations handled atomically?
-- What if the combined balance of all available donors is still less than the deficit amount — can a partial carryover be created, or must the entire category be skipped?
-- What if the YNAB API rate limit (200 requests/hour) is reached during a large multi-month cascade with many donor-split transactions?
-- What if the user runs the cascade mid-month — are source/target dates still calculated correctly from the previous calendar month boundary?
+- What if fixing February's negatives causes a March category to go negative — but March has already been partially fixed in a prior run? This is why we run from the back... if March needs fixing, we fix it. It's ok to create a new tuple to do the fix.
+- What if a transaction clears between the clearance check and the moment execution is triggered — should the check be re-run at execution time? won't happen, at least for me there are no race conditions cause transaction clearance is manual (my accounts are not linked), so I clear them all once a month once the month ended. Still, it's irrelevant, cause if any transaction is uncleared and the account is not reconciled by the time we run this, we can't run this process... it's not just about cleared transactions, it's about all accounts being reconciled AFTER the month-to-fix ended. 
+- What if a credit card payment category is negative for a reason unrelated to overspending (e.g., a manual adjustment) — should the exclusion rule still apply unconditionally? unconditionally... it's not our job to fix all problems! just to carry over negative balances from month to month. 
+- What happens when a negative category is deleted in YNAB between when the scan runs and when execution is triggered? No changes will happen while our process is running... this isn't a long running process, the user will manually trigger it and no other changes will happen until it's done. 
+- What if two categories in the same month have the same name but belong to different groups? R/ what about it? you shouldn't be confused, cause all categories are uniquely named with group+name.
+- What if the internal loan account is deleted from YNAB after it was saved in the configuration? a failure to find that loan account should error out, and offer the user to exit or clear the config and reconfigure the loan account. BUT the error handling should be specific about the loan account not existing. 
+- What if the lookback scan reveals negatives from more than six months ago — is there a hard limit on how far back to cascade? R/ a responsible user won't need to go that far back, this should be a monthly practice. Don't worry about this. 
+- What if a carryover amount is extremely small (e.g., -$0.01) — should trivially small negatives be filtered out or shown? Yes, we need all green balances. 
+- What happens when a donor category balance exactly equals the carryover amount (boundary condition — donor is fully drained)? use it. The donor is a temporary donor. i doesn't matter which account is the donnor, cause it'll get the money back on the 2nd transaction of the tuple.
+- What if a deficit is split across many donors and one of those donor transactions fails mid-execution — how are the partial donor allocations handled atomically?There's no partial allocation. The transactions are 2 only. That's it. All categories are added to a single 0 balanced transaction. The only partial would be that transaction 1 is created but 2 fails... we can fall back to deleting (roll back'ish) the 1st transaction if the 2nd can't be created. 
+- What if the combined balance of all available donors is still less than the deficit amount — can a partial carryover be created, or must the entire category be skipped? this should never happen. If it does, then cancel the entire thing... this means the user genuinely spent more than they had, and the error should remain evident to them. 
+- What if the YNAB API rate limit (200 requests/hour) is reached during a large multi-month cascade with many donor-split transactions? shouldn't happen, but recognize the rate limit error and pause for whatever time is left of the hour before continuing. 
+- What if the user runs the cascade mid-month — are source/target dates still calculated correctly from the previous calendar month boundary? This will almost certainly run mid-month, but for the previous month. So we are mid May now, I'd run it now to bring the April negative balances into May. And yes, the transactions should still be Apr/30 and May/1. 
 
 ---
 
@@ -148,21 +129,22 @@ A user who needs to update their YNAB API key or switch to a different internal 
 - **FR-008**: System MUST exclude all credit card payment categories from scan results and cascade operations; these categories MUST never appear as carryover candidates regardless of their balance.
 - **FR-009**: Cascade feature screen MUST scan the last three calendar months by default and display all qualifying months (months with at least one negative non-credit-card category), grouped by month, ordered oldest-first.
 - **FR-010**: Each displayed negative category MUST show the category name, group name, and carryover amount as a positive value.
-- **FR-011**: System MUST compute a full cascade plan before any transactions are created, simulating the carry-forward effect month by month so that all necessary tuplets (including those induced by earlier months' fixes) are identified up front.
-- **FR-012**: Cascade plan MUST be presented to the user for review before any transactions are submitted to YNAB; the plan MUST show auto-assigned donors for every step.
-- **FR-013**: System MUST automatically select donor categories without requiring user input; donor selection is part of plan computation, not a separate user action.
-- **FR-014**: When selecting a donor for a deficit, system MUST first attempt to find a single category whose available balance covers the entire deficit amount.
-- **FR-015**: When no single category can cover a deficit, system MUST split coverage across multiple donors, drawing from each in descending balance order until the full deficit is covered.
-- **FR-016**: System MUST support donor-splitting at the sub-category level: a single negative category's deficit may be partially funded by each of several donors, with each donor contributing a separate transaction pair.
-- **FR-017**: System MUST execute the cascade plan in chronological order, oldest month first.
-- **FR-018**: For each donor allocation in a step, system MUST create Transaction A in the internal loan account dated the last day of the source month, assigned to that donor category, for the donor's contribution amount.
-- **FR-019**: For each donor allocation in a step, system MUST create the corresponding Transaction B in the internal loan account dated the first day of the following month, assigned to the negative (carryover) category, for the same contribution amount.
-- **FR-020**: All Transaction A and Transaction B pairs for a single donor allocation MUST be atomic: if either fails, neither is left persisted in YNAB. For a multi-donor step, each donor allocation is atomic independently; a failed allocation does not roll back allocations already committed for the same category.
-- **FR-021**: System MUST show execution progress step by step and report which donor allocations succeeded and which failed.
-- **FR-022**: System MUST allow the user to retry a failed donor allocation without re-executing already-completed allocations.
-- **FR-023**: System MUST warn before executing if it detects existing transactions suggesting a carryover for the same category and month was already performed.
-- **FR-024**: A Settings screen MUST be accessible from the main navigation and MUST allow updating the YNAB API key and internal loan account.
-- **FR-025**: System MUST display clear, actionable error messages for all YNAB connectivity failures, with a retry option.
+- **FR-011**: System MUST compute each month's plan (negative categories + auto-assigned donors) immediately before presenting that month's summary screen; upfront planning of all months at once is not required.
+- **FR-012**: Each month's summary MUST be presented to the user for review and explicit confirmation before any transactions for that month are submitted; no transactions for future months are created until those months are individually confirmed.
+- **FR-013**: After successfully executing month M's transactions, system MUST derive month M+1's plan by incorporating the carry-forward amounts from M's execution and present that plan as the next month's summary screen before any action is taken.
+- **FR-014**: System MUST automatically select donor categories without requiring user input; donor selection is part of plan computation, not a separate user action.
+- **FR-015**: When selecting a donor for a deficit, system MUST first attempt to find a single category whose available balance covers the entire deficit amount.
+- **FR-016**: When no single category can cover a deficit, system MUST split coverage across multiple donors, drawing from each in descending balance order until the full deficit is covered.
+- **FR-017**: System MUST support donor-splitting at the sub-category level: a single negative category's deficit may be partially funded by each of several donors, with each donor contributing a separate transaction pair.
+- **FR-018**: System MUST process months in chronological order, oldest first; the user cannot skip ahead to a later month without completing or explicitly skipping the current one.
+- **FR-019**: For each donor allocation in a step, system MUST create Transaction A in the internal loan account dated the last day of the source month, assigned to that donor category, for the donor's contribution amount.
+- **FR-020**: For each donor allocation in a step, system MUST create the corresponding Transaction B in the internal loan account dated the first day of the following month, assigned to the negative (carryover) category, for the same contribution amount.
+- **FR-021**: All Transaction A and Transaction B pairs for a single donor allocation MUST be atomic: if either fails, neither is left persisted in YNAB. For a multi-donor step, each donor allocation is atomic independently; a failed allocation does not roll back allocations already committed for the same category.
+- **FR-022**: System MUST show execution progress within each month's step and report which donor allocations succeeded and which failed before advancing to the next month.
+- **FR-023**: System MUST allow the user to retry failed donor allocations within the current month without re-executing already-completed allocations for that month.
+- **FR-024**: System MUST warn before executing a month if it detects existing transactions suggesting a carryover for the same category and month was already performed.
+- **FR-025**: A Settings screen MUST be accessible from the main navigation and MUST allow updating the YNAB API key and internal loan account.
+- **FR-026**: System MUST display clear, actionable error messages for all YNAB connectivity failures, with a retry option.
 
 ### Key Entities
 
@@ -174,7 +156,7 @@ A user who needs to update their YNAB API key or switch to a different internal 
 - **Internal Loan Account**: A YNAB account not linked to any real bank account, used exclusively to record carryover transactions. Identified by its unique ID stored in local config.
 - **Donor Allocation**: A single donor's contribution toward covering a negative category's deficit. Consists of Transaction A (draws from the donor on the last day of the source month) and Transaction B (restores the donor via the carryover category on the first day of the following month). A deficit may require one or more donor allocations to be fully covered.
 - **Carryover Tuplet**: The complete set of donor allocations for a single negative category and month. If one donor covers the full deficit, the tuplet contains one allocation (two transactions). If multiple donors are needed, the tuplet contains one allocation per donor (two transactions each).
-- **Cascade Plan**: The full ordered sequence of carryover tuplets computed before execution, auto-assigned with donor allocations. Accounts for carry-forward effects: a tuplet in month M induces new negatives in month M+1, which are included in the plan automatically.
+- **Cascade Plan**: The month-by-month sequence of carryover tuplets processed one month at a time. Each month's plan is computed immediately before that month's summary is shown; carry-forward amounts from month M are incorporated into month M+1's plan after M's execution completes.
 - **Donor Category**: Any budget category with available balance that the system automatically selects to fund one or more carryover allocations. A donor does not need to cover any full deficit on its own; it may contribute a partial amount as part of a multi-donor split.
 - **Configuration**: A local, non-committed file storing: YNAB API key, budget ID, and internal loan account ID.
 
@@ -186,7 +168,7 @@ A user who needs to update their YNAB API key or switch to a different internal 
 
 - **SC-001**: A user who has never configured YNAB credentials can complete the setup wizard and begin their first cascade scan in under 3 minutes.
 - **SC-002**: The multi-month scan of the last three calendar months completes and displays results within 10 seconds of the cascade screen loading (on a stable internet connection).
-- **SC-003**: The full cascade plan — including induced carry-forwards across all affected months — is computed and displayed within 5 seconds of the user initiating plan generation.
+- **SC-003**: Each individual month's summary — including carry-forward amounts from the previous month's execution — is computed and displayed within 5 seconds of advancing to that month.
 - **SC-004**: A user can review the plan, confirm, and execute a cascade covering three months with up to five negative categories per month in a single session without leaving the app.
 - **SC-005**: All carryover transaction tuplets are visible and correctly reflected in YNAB within 20 seconds of the user confirming execution.
 - **SC-006**: Zero duplicate tuplets are created when the same cascade is attempted more than once for the same categories and months.
