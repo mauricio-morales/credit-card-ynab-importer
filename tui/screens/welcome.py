@@ -7,7 +7,9 @@ class WelcomeScreen(Screen):
     BINDINGS = [
         ("1", "select_bac", "BAC CSV"),
         ("2", "select_davi", "Davi/Scotia XLS"),
-        ("q", "quit", "Quit"),
+        ("3", "select_cascade", "Monthly Cascade"),
+        ("s", "open_settings", "Settings"),
+        ("q", "app.quit", "Quit"),
     ]
 
     def compose(self) -> ComposeResult:
@@ -16,6 +18,7 @@ class WelcomeScreen(Screen):
         yield Label("Select the type of statement to convert:", id="subtitle")
         yield Button("Convert BAC CSV", id="btn-bac", variant="primary")
         yield Button("Convert Davi/Scotia XLS", id="btn-davi", variant="default")
+        yield Button("Monthly Overspend Cascade", id="btn-cascade", variant="success")
         yield Footer()
 
     def action_select_bac(self) -> None:
@@ -28,6 +31,14 @@ class WelcomeScreen(Screen):
         from tui.screens.file_picker import FilePickerScreen
         self.app.push_screen(FilePickerScreen(ConversionType.DAVI))
 
+    def action_select_cascade(self) -> None:
+        from tui.screens.cascade_setup import CascadeEntryScreen
+        self.app.push_screen(CascadeEntryScreen())
+
+    def action_open_settings(self) -> None:
+        from tui.screens.cascade_setup import SettingsScreen
+        self.app.push_screen(SettingsScreen())
+
     def on_button_pressed(self, event: Button.Pressed) -> None:
         from tui.models import ConversionType
         from tui.screens.file_picker import FilePickerScreen
@@ -35,3 +46,5 @@ class WelcomeScreen(Screen):
             self.app.push_screen(FilePickerScreen(ConversionType.BAC))
         elif event.button.id == "btn-davi":
             self.app.push_screen(FilePickerScreen(ConversionType.DAVI))
+        elif event.button.id == "btn-cascade":
+            self.action_select_cascade()

@@ -12,3 +12,4 @@ venv/
 *.egg-info/
 dist/
 .env
+config.json

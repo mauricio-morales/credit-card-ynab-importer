@@ -1,7 +1,19 @@
 {
   "permissions": {
     "allow": [
-      "WebFetch(domain:api.ynab.com)"
+      "WebFetch(domain:api.ynab.com)",
+      "Bash(gh pr create --base *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(python -m pytest tests/test_ynab_client.py tests/test_cascade_logic.py -v --tb=short)",
+      "Bash(python3 -m pytest tests/test_ynab_client.py tests/test_cascade_logic.py -v --tb=short)",
+      "Bash(pip3 install *)",
+      "Bash(python3 -m pytest tests/test_bac_pipeline.py tests/test_davi_pipeline.py tests/test_tui.py -v --tb=short)",
+      "Bash(git stash *)",
+      "Bash(python3 -m pytest tests/test_tui.py::test_davi_full_flow -v --tb=short)",
+      "Bash(python3 -m pytest tests/test_ynab_client.py tests/test_cascade_logic.py tests/test_bac_pipeline.py tests/test_davi_pipeline.py tests/test_tui.py -v --tb=short)",
+      "Bash(python3 -m pytest tests/test_ynab_client.py tests/test_cascade_logic.py -q)",
+      "Bash(bash .specify/extensions/git/scripts/bash/auto-commit.sh after_implement)"
     ]
   }
 }
