@@ -96,7 +96,7 @@ class CascadeScanScreen(Screen):
             transactions = client.get_transactions(self._budget_id, since_date)
             lookback_transactions = [
                 t for t in transactions
-                if date.fromisoformat(t["date"]) < first_this_month
+                if t.get("date") and date.fromisoformat(t["date"]) < first_this_month
             ]
             clearance = check_clearance(lookback_transactions, self._loan_account_id, account_name_map)
 

@@ -93,9 +93,11 @@ def check_clearance(
         if txn.get("cleared") != "reconciled":
             acct_id = txn.get("account_id", "")
             counts[acct_id] = counts.get(acct_id, 0) + 1
-            txn_date = date.fromisoformat(txn["date"])
-            if acct_id not in earliest or txn_date < earliest[acct_id]:
-                earliest[acct_id] = txn_date
+            raw_date = txn.get("date")
+            if raw_date:
+                txn_date = date.fromisoformat(raw_date)
+                if acct_id not in earliest or txn_date < earliest[acct_id]:
+                    earliest[acct_id] = txn_date
 
     if not counts:
         return ClearanceCheckResult(passed=True)

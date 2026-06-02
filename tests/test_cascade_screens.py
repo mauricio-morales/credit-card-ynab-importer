@@ -6,6 +6,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from textual.widgets import Input
+
 from tui.ynab.cascade import (
     AccountReconciliationIssue,
     CarryoverTuplet,
@@ -15,6 +17,10 @@ from tui.ynab.cascade import (
 )
 from tui.ynab.client import CategoryMonthBalance, YNABClientError
 from tui.ynab.config import BudgetConfig, Config
+
+
+def _set_input(app, widget_id: str, value: str) -> None:
+    app.screen.query_one(widget_id, Input).value = value
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -54,8 +60,7 @@ class TestSetupWizardScreen:
                 await app.push_screen(SetupWizardScreen())
                 await pilot.pause()
 
-                await pilot.click("#api-key-input")
-                await pilot.type("valid-api-key")
+                _set_input(app, "#api-key-input", "valid-api-key")
                 await pilot.click("#btn-validate")
                 await pilot.pause(0.2)
 
@@ -80,8 +85,7 @@ class TestSetupWizardScreen:
             async with app.run_test() as pilot:
                 await app.push_screen(SetupWizardScreen())
                 await pilot.pause()
-                await pilot.click("#api-key-input")
-                await pilot.type("bad-key")
+                _set_input(app, "#api-key-input", "bad-key")
                 await pilot.click("#btn-validate")
                 await pilot.pause(0.2)
 
@@ -104,8 +108,7 @@ class TestSetupWizardScreen:
             async with app.run_test() as pilot:
                 await app.push_screen(SetupWizardScreen())
                 await pilot.pause()
-                await pilot.click("#api-key-input")
-                await pilot.type("key-with-no-budgets")
+                _set_input(app, "#api-key-input", "key-with-no-budgets")
                 await pilot.click("#btn-validate")
                 await pilot.pause(0.2)
 
@@ -136,9 +139,9 @@ class TestBudgetAndAccountScreens:
             app = CreditCardConverterApp()
             async with app.run_test() as pilot:
                 await app.push_screen(BudgetSelectScreen(config=config))
-                await pilot.pause()
-                await pilot.click("#budget-list")
-                await pilot.pause(0.2)
+                await pilot.pause(0.3)
+                from tui.screens.cascade_scan import CascadeScanScreen
+                assert isinstance(app.screen, CascadeScanScreen)
 
     @pytest.mark.asyncio
     async def test_account_save_writes_atomic_config_entry(self, tmp_path):
