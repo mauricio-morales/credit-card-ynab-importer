@@ -1,0 +1,37 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate version tag
+        id: tag
+        run: echo "TAG=v$(date +%Y-%m-%d)" >> $GITHUB_OUTPUT
+
+      - name: Set execute permission on Mac launcher
+        run: chmod +x run_mac.command
+
+      - name: Create release zip
+        run: |
+          zip -r credit-card-ynab-importer-${{ steps.tag.outputs.TAG }}.zip \
+            scripts/ tui/ requirements.txt run.py \
+            run_windows.bat run_mac.command
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.TAG }}
+          name: "Release ${{ steps.tag.outputs.TAG }}"
+          body: "Automated release. See GETTING_STARTED.md for setup instructions."
+          files: credit-card-ynab-importer-${{ steps.tag.outputs.TAG }}.zip
+          allow_updates: true
