@@ -84,6 +84,7 @@ def check_clearance(
     transactions: list[dict],
     loan_account_id: str,
     account_name_map: dict[str, str],
+    all_transactions: list[dict] | None = None,
 ) -> ClearanceCheckResult:
     counts: dict[str, int] = {}
     earliest: dict[str, date] = {}
@@ -98,6 +99,35 @@ def check_clearance(
                 txn_date = date.fromisoformat(raw_date)
                 if acct_id not in earliest or txn_date < earliest[acct_id]:
                     earliest[acct_id] = txn_date
+
+    if not counts:
+        return ClearanceCheckResult(passed=True)
+
+    # If a broader transaction set is provided, find the latest reconciled date per account.
+    # An account whose latest reconciled transaction is *after* its earliest unreconciled one
+    # has already been reconciled past those transactions — they're just late-posting items
+    # that will appear on a future statement. Don't block on them.
+    if all_transactions is not None:
+        latest_reconciled: dict[str, date] = {}
+        for txn in all_transactions:
+            if txn.get("account_id") == loan_account_id:
+                continue
+            if txn.get("cleared") == "reconciled":
+                acct_id = txn.get("account_id", "")
+                raw_date = txn.get("date")
+                if raw_date:
+                    txn_date = date.fromisoformat(raw_date)
+                    if acct_id not in latest_reconciled or txn_date > latest_reconciled[acct_id]:
+                        latest_reconciled[acct_id] = txn_date
+
+        counts = {
+            acct_id: count
+            for acct_id, count in counts.items()
+            if not (
+                acct_id in latest_reconciled
+                and latest_reconciled[acct_id] > earliest.get(acct_id, date.min)
+            )
+        }
 
     if not counts:
         return ClearanceCheckResult(passed=True)

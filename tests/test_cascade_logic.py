@@ -172,6 +172,56 @@ class TestCheckClearance:
         assert by_name["Account 1"] == 2
         assert by_name["Account 2"] == 1
 
+    def test_passes_when_newer_reconciliation_supersedes_unreconciled(self):
+        # June unreconciled txn didn't post; user already reconciled in July
+        lookback = [
+            {"account_id": "a1", "cleared": "uncleared", "date": "2026-06-15"},
+        ]
+        all_txns = lookback + [
+            {"account_id": "a1", "cleared": "reconciled", "date": "2026-07-05"},
+        ]
+        result = check_clearance(lookback, "loan-1", {"a1": "Checking"}, all_transactions=all_txns)
+        assert result.passed is True
+
+    def test_still_blocks_when_no_newer_reconciliation(self):
+        # Unreconciled June txn, but latest reconciled is also in June (before it)
+        lookback = [
+            {"account_id": "a1", "cleared": "uncleared", "date": "2026-06-20"},
+        ]
+        all_txns = lookback + [
+            {"account_id": "a1", "cleared": "reconciled", "date": "2026-06-10"},
+        ]
+        result = check_clearance(lookback, "loan-1", {"a1": "Checking"}, all_transactions=all_txns)
+        assert result.passed is False
+        assert result.issues[0].unreconciled_count == 1
+
+    def test_mixed_accounts_only_supersedes_accounts_with_newer_reconciliation(self):
+        # a1 has a newer reconciliation → should pass; a2 does not → should still block
+        lookback = [
+            {"account_id": "a1", "cleared": "uncleared", "date": "2026-06-15"},
+            {"account_id": "a2", "cleared": "uncleared", "date": "2026-06-20"},
+        ]
+        all_txns = lookback + [
+            {"account_id": "a1", "cleared": "reconciled", "date": "2026-07-01"},
+            {"account_id": "a2", "cleared": "reconciled", "date": "2026-06-01"},
+        ]
+        result = check_clearance(
+            lookback, "loan-1",
+            {"a1": "Account 1", "a2": "Account 2"},
+            all_transactions=all_txns,
+        )
+        assert result.passed is False
+        assert len(result.issues) == 1
+        assert result.issues[0].account_name == "Account 2"
+
+    def test_without_all_transactions_behaves_as_before(self):
+        # Passing no all_transactions preserves original strict behavior
+        lookback = [
+            {"account_id": "a1", "cleared": "uncleared", "date": "2026-06-15"},
+        ]
+        result = check_clearance(lookback, "loan-1", {"a1": "Checking"})
+        assert result.passed is False
+
 
 # ── build_scan_overview() ─────────────────────────────────────────────────────
 

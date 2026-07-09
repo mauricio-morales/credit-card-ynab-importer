@@ -15,7 +15,8 @@
       "Bash(python3 -m pytest tests/test_ynab_client.py tests/test_cascade_logic.py -q)",
       "Bash(bash .specify/extensions/git/scripts/bash/auto-commit.sh after_implement)",
       "Bash(bash .specify/extensions/git/scripts/bash/create-new-feature.sh --json --short-name \"install-docs-release\" \"Create user-friendly installation guide and GitHub release packaging for non-technical Mac and Windows users\")",
-      "Bash(chmod +x /Users/mmorales/Documents/Contabilidad/credit-card-ynab-importer/run_mac.command)"
+      "Bash(chmod +x /Users/mmorales/Documents/Contabilidad/credit-card-ynab-importer/run_mac.command)",
+      "Bash(gh pr *)"
     ]
   }
 }
