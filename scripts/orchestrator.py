@@ -4,8 +4,9 @@ Usage:
     python scripts/orchestrator.py <file1> [file2 ...]
 
 Bank detection:
-    .xls  -> DaviBank pipeline
+    .xlsx -> DaviBank pipeline
     .csv  -> BAC pipeline
+    .xls  -> rejected (legacy DaviBank format, no longer supported)
 
 Output naming:
     Input:   "BAC MCB Marzo-in.csv"  or  "BAC MCB Marzo.csv"
@@ -66,7 +67,7 @@ def run_bac(input_path: Path):
 
 
 def run_davi(input_path: Path):
-    """Run a DaviBank XLS file through all 3 stages."""
+    """Run a DaviBank XLSX file through all 3 stages."""
     d = input_path.parent
     base = base_name(input_path)
 
@@ -93,12 +94,21 @@ def run_davi(input_path: Path):
 
 def run(input_path: Path):
     ext = input_path.suffix.lower()
-    if ext == '.xls':
-        run_davi(input_path)
-    elif ext == '.csv':
-        run_bac(input_path)
-    else:
-        print(f"ERROR: Unsupported file type '{ext}' for {input_path.name}", file=sys.stderr)
+    try:
+        if ext in ('.xls', '.xlsx'):
+            run_davi(input_path)
+        elif ext == '.csv':
+            run_bac(input_path)
+        else:
+            print(f"ERROR: Unsupported file type '{ext}' for {input_path.name}", file=sys.stderr)
+            sys.exit(1)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        user_message = getattr(exc, 'user_message', None)
+        if user_message is None:
+            raise
+        print(f"ERROR: {user_message}", file=sys.stderr)
         sys.exit(1)
 
 

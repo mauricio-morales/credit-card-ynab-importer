@@ -14,22 +14,18 @@ BAC CSV
   - Medical policy           → CLI010101
   - Insurance policy         → PRFCD10001
 
-DaviBank XLS
+DaviBank XLSX
   - Full card numbers        → 4573099990000001 / 4573099990000002
   - Payment tail (****-7071) → ****-0001
 
 Usage
 -----
     python scripts/generate_fixtures.py
-
-Requires xlwt for the DaviBank XLS output:
-    pip install xlwt
 """
 
-import sys
 from pathlib import Path
 
-import xlrd
+import openpyxl
 
 ROOT = Path(__file__).parent.parent
 DATA_DIR = ROOT / "data"
@@ -53,9 +49,9 @@ BAC_SUBS = [
 # ── DaviBank XLS substitutions ────────────────────────────────────────────────
 
 DAVI_SUBS = [
-    ("4573060082607071", "4573099990000001"),
-    ("4573060070460988", "4573099990000002"),
-    ("****-7071", "****-0001"),
+    ("4573060030758398", "4573099990000001"),
+    ("4573060014128121", "4573099990000002"),
+    ("****-8398", "****-0001"),
 ]
 
 
@@ -72,31 +68,25 @@ def obfuscate_bac_csv(src: Path, dst: Path) -> None:
     print(f"  written: {dst.relative_to(ROOT)}")
 
 
-def obfuscate_davi_xls(src: Path, dst: Path) -> None:
-    try:
-        import xlwt
-    except ImportError:
-        print("ERROR: xlwt is required. Install with:  pip install xlwt", file=sys.stderr)
-        sys.exit(1)
+def obfuscate_davi_xlsx(src: Path, dst: Path) -> None:
+    src_wb = openpyxl.load_workbook(str(src), read_only=True, data_only=True)
+    src_ws = src_wb.worksheets[0]
 
-    book = xlrd.open_workbook(str(src))
-    sheet = book.sheet_by_index(0)
+    dst_wb = openpyxl.Workbook()
+    dst_ws = dst_wb.active
+    dst_ws.title = "Sheet1"
 
-    wb = xlwt.Workbook(encoding="utf-8")
-    ws = wb.add_sheet("Sheet1")
-
-    for row_idx in range(sheet.nrows):
-        for col_idx in range(sheet.ncols):
-            cell = sheet.cell(row_idx, col_idx)
-            if cell.ctype == xlrd.XL_CELL_EMPTY:
-                ws.write(row_idx, col_idx, "")
+    for row_idx, row in enumerate(src_ws.iter_rows(), start=1):
+        for col_idx, cell in enumerate(row, start=1):
+            if cell.value is None:
+                dst_ws.cell(row=row_idx, column=col_idx, value="")
             else:
                 val = str(cell.value).strip()
                 for real, fake in DAVI_SUBS:
                     val = val.replace(real, fake)
-                ws.write(row_idx, col_idx, val)
+                dst_ws.cell(row=row_idx, column=col_idx, value=val)
 
-    wb.save(str(dst))
+    dst_wb.save(str(dst))
     print(f"  written: {dst.relative_to(ROOT)}")
 
 
@@ -115,11 +105,11 @@ def main() -> None:
             print(f"  skipped (not found): {src_name}")
 
     print("Generating DaviBank fixture…")
-    davi_src = DATA_DIR / "DaviBank Visa-in.xls"
+    davi_src = DATA_DIR / "DaviBank Visa-in.xlsx"
     if davi_src.exists():
-        obfuscate_davi_xls(davi_src, FIXTURES_DIR / "DaviBank Sample-in.xls")
+        obfuscate_davi_xlsx(davi_src, FIXTURES_DIR / "DaviBank Sample-in.xlsx")
     else:
-        print("  skipped (not found): DaviBank Visa-in.xls")
+        print("  skipped (not found): DaviBank Visa-in.xlsx")
 
     print("Done. Now run:  python scripts/generate_expected_outputs.py")
 

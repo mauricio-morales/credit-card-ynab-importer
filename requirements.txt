@@ -1,7 +1,5 @@
 textual>=0.82.0
-xlrd>=2.0.1
+openpyxl>=3.1
 requests>=2.28
 pytest>=7.0
 pytest-asyncio>=0.23.0
-# only needed to regenerate fixtures (scripts/generate_fixtures.py):
-xlwt>=1.3

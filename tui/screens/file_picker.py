@@ -50,7 +50,7 @@ class FilePickerScreen(Screen):
     def _header_text(self) -> str:
         if self.conversion_type == ConversionType.BAC:
             return "Select a BAC CSV file:"
-        return "Select a Davi/Scotia XLS file:"
+        return "Select a Davi/Scotia XLSX file:"
 
     def on_directory_tree_file_selected(
         self, event: DirectoryTree.FileSelected

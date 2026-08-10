@@ -18,7 +18,7 @@ import davi_stage2
 import davi_stage3
 
 
-INPUT_FILE = FIXTURES_DIR / 'DaviBank Sample-in.xls'
+INPUT_FILE = FIXTURES_DIR / 'DaviBank Sample-in.xlsx'
 EXPECTED_OUT1 = FIXTURES_DIR / 'DaviBank Sample-out1.csv'
 EXPECTED_OUT2_CRC = FIXTURES_DIR / 'DaviBank Sample-out2-crc.csv'
 EXPECTED_OUT2_USD = FIXTURES_DIR / 'DaviBank Sample-out2-usd.csv'
@@ -84,6 +84,80 @@ class TestDaviStage1:
         gen = parse_davi_rows(out)
         exp = parse_davi_rows(EXPECTED_OUT1)
         assert_rows_match(gen, exp, "DaviStage1")
+
+    def test_multi_card_section_passthrough(self, tmp_out):
+        out = tmp_out('out1.csv')
+        davi_stage1.process(INPUT_FILE, out)
+        with open(out, encoding='utf-8') as f:
+            lines = [line.rstrip('\n') for line in f if line.strip()]
+        card_marker_lines = [l for l in lines if l.startswith('Tarjeta Número:,')]
+        card_numbers = [l.split(',')[1] for l in card_marker_lines]
+        # The reference sample's first card is interrupted by a second card's
+        # section and then resumes (data-model.md § Card Section).
+        assert len(card_marker_lines) >= 3
+        assert card_numbers[0] == card_numbers[2]
+        assert card_numbers[0] != card_numbers[1]
+
+    def test_debit_credit_source_signs(self, tmp_out):
+        out = tmp_out('out1.csv')
+        davi_stage1.process(INPUT_FILE, out)
+        with open(out, encoding='utf-8') as f:
+            lines = [line.strip() for line in f if line.strip()]
+        debit_amounts, credit_amounts = [], []
+        for line in lines[1:]:
+            parts = line.split(',')
+            if len(parts) < 6 or parts[0] == 'Tarjeta Número:':
+                continue
+            if parts[5] == 'DEBITO':
+                debit_amounts.append(float(parts[3]))
+            elif parts[5] == 'CREDITO':
+                credit_amounts.append(float(parts[3]))
+        assert debit_amounts, "no DEBITO rows found"
+        assert credit_amounts, "no CREDITO rows found"
+        assert all(a > 0 for a in debit_amounts), "DEBITO amounts should be positive at source"
+        assert all(a < 0 for a in credit_amounts), "CREDITO amounts should be negative at source"
+
+    def test_empty_transactions_header_only(self, tmp_out):
+        infile = FIXTURES_DIR / 'DaviBank EmptyTransactions-in.xlsx'
+        out = tmp_out('out1.csv')
+        davi_stage1.process(infile, out)
+        with open(out, encoding='utf-8') as f:
+            lines = [l for l in f if l.strip()]
+        assert len(lines) == 1
+        assert 'Número de Referencia' in lines[0]
+
+    def test_footer_row_skipped(self, tmp_out):
+        infile = FIXTURES_DIR / 'DaviBank FooterRow-in.xlsx'
+        out = tmp_out('out1.csv')
+        davi_stage1.process(infile, out)
+        with open(out, encoding='utf-8') as f:
+            content = f.read()
+        assert 'Rango de fechas' not in content
+        rows = parse_davi_rows(out)
+        # 1 card marker + 2 data rows; footer row must not become a 3rd data row
+        assert len(rows) == 3
+
+    def test_multi_sheet_only_first_sheet(self, tmp_out):
+        infile = FIXTURES_DIR / 'DaviBank MultiSheet-in.xlsx'
+        out = tmp_out('out1.csv')
+        davi_stage1.process(infile, out)
+        with open(out, encoding='utf-8') as f:
+            content = f.read()
+        assert 'SHOULD NOT APPEAR' not in content
+        assert '200001' in content
+
+    def test_native_cells_normalize(self, tmp_out):
+        infile = FIXTURES_DIR / 'DaviBank NativeCells-in.xlsx'
+        out = tmp_out('out1.csv')
+        davi_stage1.process(infile, out)
+        rows = parse_davi_rows(out)
+        by_ref = {r[0]: r for r in rows if r[0] != 'Tarjeta Número:'}
+        assert by_ref['300001'][1] == (2026, 7, 6)          # string date, unchanged
+        assert by_ref['300002'][1] == (2026, 7, 7)          # native datetime normalized
+        assert by_ref['300002'][3] == '500'                 # string amount, unchanged
+        assert by_ref['300003'][3] == '250'                 # native numeric amount, trailing .00 stripped
+        assert by_ref['300004'][1] == (2026, 7, 9)          # native date
+        assert by_ref['300004'][3] == '-75.5'                # native numeric amount, real decimal kept
 
 
 class TestDaviStage2:
@@ -207,3 +281,39 @@ class TestDaviStage3:
                 parts = line.split('","')
                 assert parts[0].startswith('"'), f"First field not quoted: {line}"
                 assert parts[-1].endswith('"'), f"Last field not quoted: {line}"
+
+    def test_debit_credit_signs_negated(self, tmp_out):
+        out = tmp_out('out3-crc.csv')
+        davi_stage3.process(self.out2_crc, out, currency='crc')
+        rows = parse_ynab_rows(out)
+        amounts = [float(r[3]) for r in rows]
+        # DEBITO (positive at source) -> negative YNAB outflow;
+        # CREDITO (negative at source) -> positive YNAB inflow.
+        assert any(a < 0 for a in amounts), "expected at least one negative (outflow) amount"
+        assert any(a > 0 for a in amounts), "expected at least one positive (inflow) amount"
+
+
+class TestDaviErrorHandling:
+    def test_legacy_xls_rejected(self, tmp_out):
+        infile = FIXTURES_DIR / 'DaviBank Sample-in.xls'
+        out = tmp_out('out1.csv')
+        with pytest.raises(davi_stage1.LegacyFormatError) as exc_info:
+            davi_stage1.process(infile, out)
+        assert exc_info.value.user_message
+        assert not out.exists()
+
+    def test_unreadable_file_rejected(self, tmp_out):
+        infile = FIXTURES_DIR / 'DaviBank NotASpreadsheet-in.xlsx'
+        out = tmp_out('out1.csv')
+        with pytest.raises(davi_stage1.UnreadableFileError) as exc_info:
+            davi_stage1.process(infile, out)
+        assert exc_info.value.user_message
+        assert not out.exists()
+
+    def test_missing_columns_rejected(self, tmp_out):
+        infile = FIXTURES_DIR / 'DaviBank MissingColumn-in.xlsx'
+        out = tmp_out('out1.csv')
+        with pytest.raises(davi_stage1.MissingColumnsError) as exc_info:
+            davi_stage1.process(infile, out)
+        assert 'Monto' in exc_info.value.user_message
+        assert not out.exists()

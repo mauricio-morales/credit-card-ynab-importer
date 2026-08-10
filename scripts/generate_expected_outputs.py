@@ -47,7 +47,7 @@ def run_bac(prefix: str) -> None:
 
 
 def run_davi(prefix: str) -> None:
-    infile = FIXTURES_DIR / f"{prefix}-in.xls"
+    infile = FIXTURES_DIR / f"{prefix}-in.xlsx"
     if not infile.exists():
         print(f"  skipped (not found): {infile.name}")
         return
