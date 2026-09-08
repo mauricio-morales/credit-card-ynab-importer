@@ -30,6 +30,7 @@ import bac_stage3
 import davi_stage1
 import davi_stage2
 import davi_stage3
+import qif_export
 
 
 def base_name(input_path: Path) -> str:
@@ -63,7 +64,12 @@ def run_bac(input_path: Path):
     print(f"[BAC] Stage 3 USD: {out2_usd.name} -> {out3_usd.name}")
     bac_stage3.process(out2_usd, out3_usd, currency='usd')
 
-    print(f"[BAC] Done. YNAB files: {out3_crc.name}, {out3_usd.name}")
+    qif_crc = out3_crc.with_suffix('.qif')
+    qif_usd = out3_usd.with_suffix('.qif')
+    qif_export.convert_csv_to_qif(out3_crc, qif_crc)
+    qif_export.convert_csv_to_qif(out3_usd, qif_usd)
+
+    print(f"[BAC] Done. YNAB files: {out3_crc.name}, {out3_usd.name}, {qif_crc.name}, {qif_usd.name}")
 
 
 def run_davi(input_path: Path):
@@ -89,7 +95,12 @@ def run_davi(input_path: Path):
     print(f"[DaviBank] Stage 3 USD: {out2_usd.name} -> {out3_usd.name}")
     davi_stage3.process(out2_usd, out3_usd, currency='usd')
 
-    print(f"[DaviBank] Done. YNAB files: {out3_crc.name}, {out3_usd.name}")
+    qif_crc = out3_crc.with_suffix('.qif')
+    qif_usd = out3_usd.with_suffix('.qif')
+    qif_export.convert_csv_to_qif(out3_crc, qif_crc)
+    qif_export.convert_csv_to_qif(out3_usd, qif_usd)
+
+    print(f"[DaviBank] Done. YNAB files: {out3_crc.name}, {out3_usd.name}, {qif_crc.name}, {qif_usd.name}")
 
 
 def run(input_path: Path):

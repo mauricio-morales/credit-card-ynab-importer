@@ -5,6 +5,7 @@ Reads a Scotia/DaviBank .xlsx statement export and outputs CSV preserving all
 rows including card separators.
 """
 
+import csv
 import datetime
 import sys
 import zipfile
@@ -119,7 +120,7 @@ def process(input_path, output_path=None):
 
     worksheet = _load_worksheet(input_path)
 
-    output_lines = []
+    rows = []
 
     for row_idx, row in enumerate(worksheet.iter_rows()):
         values = [cell.value for cell in row]
@@ -139,7 +140,7 @@ def process(input_path, output_path=None):
                     "This file's layout doesn't match the expected Scotia/DaviBank "
                     f"statement columns ({detail})."
                 )
-            output_lines.append(','.join(header) + '\n')
+            rows.append(header)
             continue
 
         # Skip fully empty rows
@@ -155,7 +156,7 @@ def process(input_path, output_path=None):
         # Card separator rows: first cell is "Tarjeta Número:"
         if cell0 == 'Tarjeta Número:':
             card_num = _text_value(values[1])
-            output_lines.append(f"{cell0},{card_num},,,,\n")
+            rows.append([cell0, card_num, '', '', '', ''])
             continue
 
         # Data rows
@@ -165,10 +166,11 @@ def process(input_path, output_path=None):
         amount = _format_amount_value(values[3])
         currency = _text_value(values[4])
         txn_type = _text_value(values[5])
-        output_lines.append(f"{ref},{date},{desc},{amount},{currency},{txn_type}\n")
+        rows.append([ref, date, desc, amount, currency, txn_type])
 
-    with open(output_path, 'w', encoding='utf-8') as f:
-        f.writelines(output_lines)
+    with open(output_path, 'w', encoding='utf-8', newline='') as f:
+        writer = csv.writer(f, lineterminator='\n')
+        writer.writerows(rows)
 
     return str(output_path)
 

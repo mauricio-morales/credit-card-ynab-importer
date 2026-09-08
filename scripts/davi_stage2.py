@@ -4,6 +4,7 @@
 Removes card separator rows, normalizes dates to DD/MM/YYYY, and splits by Moneda column.
 """
 
+import csv
 import sys
 from pathlib import Path
 
@@ -38,23 +39,20 @@ def process(input_path, output_crc_path=None, output_usd_path=None):
     else:
         output_usd_path = Path(output_usd_path)
 
-    with open(input_path, 'r', encoding='utf-8') as f:
-        lines = f.readlines()
+    with open(input_path, 'r', encoding='utf-8', newline='') as f:
+        rows = list(csv.reader(f))
 
-    header = lines[0].strip() + '\n' if lines else ''
-    crc_lines = [header]
-    usd_lines = [header]
+    header = rows[0] if rows else []
+    crc_rows = [header]
+    usd_rows = [header]
 
-    for line in lines[1:]:
-        line_stripped = line.strip()
-        if not line_stripped:
+    for parts in rows[1:]:
+        if not parts:
             continue
-
-        parts = line_stripped.split(',', 5)
         if len(parts) < 6:
             continue
 
-        ref, date, desc, amount, currency, txn_type = [p.strip() for p in parts]
+        ref, date, desc, amount, currency, txn_type = [p.strip() for p in parts[:6]]
 
         # Skip card separator rows
         if ref == 'Tarjeta Número:':
@@ -63,18 +61,18 @@ def process(input_path, output_crc_path=None, output_usd_path=None):
         # Normalize date
         date = normalize_date(date)
 
-        rebuilt = f"{ref},{date},{desc},{amount},{currency},{txn_type}\n"
+        rebuilt = [ref, date, desc, amount, currency, txn_type]
 
         if currency == 'CRC':
-            crc_lines.append(rebuilt)
+            crc_rows.append(rebuilt)
         elif currency == 'USD':
-            usd_lines.append(rebuilt)
+            usd_rows.append(rebuilt)
 
-    with open(output_crc_path, 'w', encoding='utf-8') as f:
-        f.writelines(crc_lines)
+    with open(output_crc_path, 'w', encoding='utf-8', newline='') as f:
+        csv.writer(f, lineterminator='\n').writerows(crc_rows)
 
-    with open(output_usd_path, 'w', encoding='utf-8') as f:
-        f.writelines(usd_lines)
+    with open(output_usd_path, 'w', encoding='utf-8', newline='') as f:
+        csv.writer(f, lineterminator='\n').writerows(usd_rows)
 
     return str(output_crc_path), str(output_usd_path)
 

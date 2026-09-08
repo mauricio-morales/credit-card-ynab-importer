@@ -23,6 +23,7 @@ import bac_stage3
 import davi_stage1
 import davi_stage2
 import davi_stage3
+import qif_export
 
 
 def run_bac(prefix: str) -> None:
@@ -36,13 +37,17 @@ def run_bac(prefix: str) -> None:
     out2_usd = FIXTURES_DIR / f"{prefix}-out2-usd.csv"
     out3_crc = FIXTURES_DIR / f"{prefix}-out3-crc.csv"
     out3_usd = FIXTURES_DIR / f"{prefix}-out3-usd.csv"
+    qif_crc  = FIXTURES_DIR / f"{prefix}-out3-crc.qif"
+    qif_usd  = FIXTURES_DIR / f"{prefix}-out3-usd.qif"
 
     bac_stage1.process(infile, out1)
     bac_stage2.process(out1, out2_crc, out2_usd)
     bac_stage3.process(out2_crc, out3_crc, currency="crc")
     bac_stage3.process(out2_usd, out3_usd, currency="usd")
+    qif_export.convert_csv_to_qif(out3_crc, qif_crc)
+    qif_export.convert_csv_to_qif(out3_usd, qif_usd)
 
-    for p in [out1, out2_crc, out2_usd, out3_crc, out3_usd]:
+    for p in [out1, out2_crc, out2_usd, out3_crc, out3_usd, qif_crc, qif_usd]:
         print(f"  written: {p.relative_to(ROOT)}")
 
 
@@ -57,13 +62,17 @@ def run_davi(prefix: str) -> None:
     out2_usd = FIXTURES_DIR / f"{prefix}-out2-usd.csv"
     out3_crc = FIXTURES_DIR / f"{prefix}-out3-crc.csv"
     out3_usd = FIXTURES_DIR / f"{prefix}-out3-usd.csv"
+    qif_crc  = FIXTURES_DIR / f"{prefix}-out3-crc.qif"
+    qif_usd  = FIXTURES_DIR / f"{prefix}-out3-usd.qif"
 
     davi_stage1.process(infile, out1)
     davi_stage2.process(out1, out2_crc, out2_usd)
     davi_stage3.process(out2_crc, out3_crc, currency="crc")
     davi_stage3.process(out2_usd, out3_usd, currency="usd")
+    qif_export.convert_csv_to_qif(out3_crc, qif_crc)
+    qif_export.convert_csv_to_qif(out3_usd, qif_usd)
 
-    for p in [out1, out2_crc, out2_usd, out3_crc, out3_usd]:
+    for p in [out1, out2_crc, out2_usd, out3_crc, out3_usd, qif_crc, qif_usd]:
         print(f"  written: {p.relative_to(ROOT)}")
 
 

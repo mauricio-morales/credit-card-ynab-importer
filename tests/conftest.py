@@ -70,6 +70,39 @@ def parse_ynab_rows(path):
     return rows
 
 
+def parse_qif_records(path):
+    """Parse a QIF file into semantic tuples: (date_tuple, payee, memo, amount).
+
+    Mirrors parse_ynab_rows()'s tuple shape so QIF and CSV output can be
+    compared directly. Memo defaults to '' when the M line is absent.
+    """
+    records = []
+    record = {}
+    with open(path, encoding='utf-8') as f:
+        for line in f:
+            line = line.rstrip('\n')
+            if not line or line == '!Type:Bank':
+                continue
+            prefix, value = line[0], line[1:]
+            if prefix == 'D':
+                record['date'] = parse_date_tuple(value)
+            elif prefix == 'P':
+                record['payee'] = value
+            elif prefix == 'M':
+                record['memo'] = value
+            elif prefix == 'T':
+                record['amount'] = value
+            elif prefix == '^':
+                records.append((
+                    record.get('date'),
+                    record.get('payee', ''),
+                    record.get('memo', ''),
+                    record.get('amount', ''),
+                ))
+                record = {}
+    return records
+
+
 def assert_rows_match(generated_rows, expected_rows, label=""):
     """Assert that two lists of semantic row tuples match."""
     prefix = f"[{label}] " if label else ""

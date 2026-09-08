@@ -5,6 +5,7 @@ Output: "Date","Payee","Memo","Amount" with YYYY/MM/DD dates.
 Memo is populated from Número de Referencia when available.
 """
 
+import csv
 import sys
 from pathlib import Path
 
@@ -62,17 +63,14 @@ def process(input_path, output_path=None, currency=None):
     else:
         output_path = Path(output_path)
 
-    with open(input_path, 'r', encoding='utf-8') as f:
-        lines = f.readlines()
+    with open(input_path, 'r', encoding='utf-8', newline='') as f:
+        rows = list(csv.reader(f))
 
     output_lines = ['"Date","Payee","Memo","Amount"\n']
 
-    for line in lines[1:]:  # skip header
-        line_stripped = line.strip()
-        if not line_stripped:
+    for parts in rows[1:]:  # skip header
+        if not parts:
             continue
-
-        parts = line_stripped.split(',', 5)
         if len(parts) < 6:
             continue
 

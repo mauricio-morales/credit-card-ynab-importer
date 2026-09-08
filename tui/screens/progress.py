@@ -53,6 +53,7 @@ class ProgressScreen(Screen):
         import davi_stage1
         import davi_stage2
         import davi_stage3
+        import qif_export
 
         src = self.job.source_path
         d = src.parent
@@ -62,9 +63,9 @@ class ProgressScreen(Screen):
 
         try:
             if self.job.conversion_type == ConversionType.BAC:
-                result = self._run_bac(src, d, stem, bac_stage1, bac_stage2, bac_stage3)
+                result = self._run_bac(src, d, stem, bac_stage1, bac_stage2, bac_stage3, qif_export)
             else:
-                result = self._run_davi(src, d, stem, davi_stage1, davi_stage2, davi_stage3)
+                result = self._run_davi(src, d, stem, davi_stage1, davi_stage2, davi_stage3, qif_export)
         except Exception as exc:
             result = ConversionResult(
                 success=False,
@@ -76,12 +77,14 @@ class ProgressScreen(Screen):
 
         self._switch_to_summary_from_thread(result)
 
-    def _run_bac(self, src, d, stem, s1, s2, s3) -> ConversionResult:
+    def _run_bac(self, src, d, stem, s1, s2, s3, qif) -> ConversionResult:
         out1 = d / f"{stem}-out1.csv"
         out2_crc = d / f"{stem}-out2-crc.csv"
         out2_usd = d / f"{stem}-out2-usd.csv"
         out3_crc = d / f"{stem}-out3-crc.csv"
         out3_usd = d / f"{stem}-out3-usd.csv"
+        qif_crc = out3_crc.with_suffix('.qif')
+        qif_usd = out3_usd.with_suffix('.qif')
 
         self._post_progress("Running Stage 1…", 1, 4)
         s1.process(src, out1)
@@ -91,24 +94,28 @@ class ProgressScreen(Screen):
 
         self._post_progress("Running Stage 3 (CRC)…", 3, 4)
         s3.process(out2_crc, out3_crc, currency="crc")
+        qif.convert_csv_to_qif(out3_crc, qif_crc)
 
         self._post_progress("Running Stage 3 (USD)…", 4, 4)
         s3.process(out2_usd, out3_usd, currency="usd")
+        qif.convert_csv_to_qif(out3_usd, qif_usd)
 
         count = _count_rows(out3_crc)
         return ConversionResult(
             success=True,
             transaction_count=count,
-            output_files=[out3_crc, out3_usd],
+            output_files=[out3_crc, out3_usd, qif_crc, qif_usd],
             conversion_type=self.job.conversion_type,
         )
 
-    def _run_davi(self, src, d, stem, s1, s2, s3) -> ConversionResult:
+    def _run_davi(self, src, d, stem, s1, s2, s3, qif) -> ConversionResult:
         out1 = d / f"{stem}-out1.csv"
         out2_crc = d / f"{stem}-out2-crc.csv"
         out2_usd = d / f"{stem}-out2-usd.csv"
         out3_crc = d / f"{stem}-out3-crc.csv"
         out3_usd = d / f"{stem}-out3-usd.csv"
+        qif_crc = out3_crc.with_suffix('.qif')
+        qif_usd = out3_usd.with_suffix('.qif')
 
         self._post_progress("Running Stage 1…", 1, 4)
         s1.process(src, out1)
@@ -118,15 +125,17 @@ class ProgressScreen(Screen):
 
         self._post_progress("Running Stage 3 (CRC)…", 3, 4)
         s3.process(out2_crc, out3_crc, currency="crc")
+        qif.convert_csv_to_qif(out3_crc, qif_crc)
 
         self._post_progress("Running Stage 3 (USD)…", 4, 4)
         s3.process(out2_usd, out3_usd, currency="usd")
+        qif.convert_csv_to_qif(out3_usd, qif_usd)
 
         count = _count_rows(out3_crc)
         return ConversionResult(
             success=True,
             transaction_count=count,
-            output_files=[out3_crc, out3_usd],
+            output_files=[out3_crc, out3_usd, qif_crc, qif_usd],
             conversion_type=self.job.conversion_type,
         )
 

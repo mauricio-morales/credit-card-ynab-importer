@@ -14,10 +14,12 @@ sys.path.insert(0, str(Path(__file__).parent.parent / 'scripts'))
 
 from conftest import (
     FIXTURES_DIR, parse_csv_rows, parse_ynab_rows, assert_rows_match, parse_date_tuple,
+    parse_qif_records,
 )
 import bac_stage1
 import bac_stage2
 import bac_stage3
+import qif_export
 
 
 INPUT_FILE = FIXTURES_DIR / 'BAC Sample-in.csv'
@@ -26,6 +28,8 @@ EXPECTED_OUT2_CRC = FIXTURES_DIR / 'BAC Sample-out2-crc.csv'
 EXPECTED_OUT2_USD = FIXTURES_DIR / 'BAC Sample-out2-usd.csv'
 EXPECTED_OUT3_CRC = FIXTURES_DIR / 'BAC Sample-out3-crc.csv'
 EXPECTED_OUT3_USD = FIXTURES_DIR / 'BAC Sample-out3-usd.csv'
+EXPECTED_QIF_CRC = FIXTURES_DIR / 'BAC Sample-out3-crc.qif'
+EXPECTED_QIF_USD = FIXTURES_DIR / 'BAC Sample-out3-usd.qif'
 
 
 class TestBACStage1:
@@ -225,3 +229,69 @@ class TestBACStage3:
                 parts = line.split('","')
                 assert parts[0].startswith('"'), f"First field not quoted: {line}"
                 assert parts[-1].endswith('"'), f"Last field not quoted: {line}"
+
+
+class TestBACQIFExport:
+    @pytest.fixture(autouse=True)
+    def run_stages(self, tmp_out):
+        self.out1 = tmp_out('out1.csv')
+        self.out2_crc = tmp_out('out2-crc.csv')
+        self.out2_usd = tmp_out('out2-usd.csv')
+        bac_stage1.process(INPUT_FILE, self.out1)
+        bac_stage2.process(self.out1, self.out2_crc, self.out2_usd)
+
+    def test_crc_qif_matches_fixture(self, tmp_out):
+        out3 = tmp_out('out3-crc.csv')
+        qif = tmp_out('out3-crc.qif')
+        bac_stage3.process(self.out2_crc, out3, currency='crc')
+        qif_export.convert_csv_to_qif(out3, qif)
+
+        with open(qif) as f:
+            assert f.readline().strip() == '!Type:Bank'
+
+        gen = parse_qif_records(qif)
+        exp_csv = parse_ynab_rows(out3)
+        exp_qif = parse_qif_records(EXPECTED_QIF_CRC)
+        assert len(gen) == len(exp_csv)
+        assert_rows_match(gen, exp_qif, "BAC-QIF-CRC")
+
+    def test_usd_qif_matches_fixture(self, tmp_out):
+        out3 = tmp_out('out3-usd.csv')
+        qif = tmp_out('out3-usd.qif')
+        bac_stage3.process(self.out2_usd, out3, currency='usd')
+        qif_export.convert_csv_to_qif(out3, qif)
+
+        with open(qif) as f:
+            assert f.readline().strip() == '!Type:Bank'
+
+        gen = parse_qif_records(qif)
+        exp_csv = parse_ynab_rows(out3)
+        exp_qif = parse_qif_records(EXPECTED_QIF_USD)
+        assert len(gen) == len(exp_csv)
+        assert_rows_match(gen, exp_qif, "BAC-QIF-USD")
+
+
+class TestBACCsvUnchangedByQifExport:
+    """User Story 2: QIF generation must not alter the out3 CSV (FR-010, SC-003)."""
+
+    @pytest.fixture(autouse=True)
+    def run_stages(self, tmp_out):
+        self.out1 = tmp_out('out1.csv')
+        self.out2_crc = tmp_out('out2-crc.csv')
+        self.out2_usd = tmp_out('out2-usd.csv')
+        bac_stage1.process(INPUT_FILE, self.out1)
+        bac_stage2.process(self.out1, self.out2_crc, self.out2_usd)
+
+    def test_crc_csv_bytes_unchanged_after_qif_export(self, tmp_out):
+        out3 = tmp_out('out3-crc.csv')
+        qif = tmp_out('out3-crc.qif')
+        bac_stage3.process(self.out2_crc, out3, currency='crc')
+        qif_export.convert_csv_to_qif(out3, qif)
+        assert out3.read_bytes() == EXPECTED_OUT3_CRC.read_bytes()
+
+    def test_usd_csv_bytes_unchanged_after_qif_export(self, tmp_out):
+        out3 = tmp_out('out3-usd.csv')
+        qif = tmp_out('out3-usd.qif')
+        bac_stage3.process(self.out2_usd, out3, currency='usd')
+        qif_export.convert_csv_to_qif(out3, qif)
+        assert out3.read_bytes() == EXPECTED_OUT3_USD.read_bytes()

@@ -3,6 +3,7 @@
 Compares script output against provided sample files using semantic comparison.
 """
 
+import csv
 import sys
 from pathlib import Path
 
@@ -12,10 +13,12 @@ sys.path.insert(0, str(Path(__file__).parent.parent / 'scripts'))
 
 from conftest import (
     FIXTURES_DIR, parse_csv_rows, parse_ynab_rows, assert_rows_match, parse_date_tuple,
+    parse_qif_records,
 )
 import davi_stage1
 import davi_stage2
 import davi_stage3
+import qif_export
 
 
 INPUT_FILE = FIXTURES_DIR / 'DaviBank Sample-in.xlsx'
@@ -24,6 +27,8 @@ EXPECTED_OUT2_CRC = FIXTURES_DIR / 'DaviBank Sample-out2-crc.csv'
 EXPECTED_OUT2_USD = FIXTURES_DIR / 'DaviBank Sample-out2-usd.csv'
 EXPECTED_OUT3_CRC = FIXTURES_DIR / 'DaviBank Sample-out3-crc.csv'
 EXPECTED_OUT3_USD = FIXTURES_DIR / 'DaviBank Sample-out3-usd.csv'
+EXPECTED_QIF_CRC = FIXTURES_DIR / 'DaviBank Sample-out3-crc.qif'
+EXPECTED_QIF_USD = FIXTURES_DIR / 'DaviBank Sample-out3-usd.qif'
 
 
 def parse_davi_rows(path):
@@ -34,12 +39,11 @@ def parse_davi_rows(path):
     (Excel artifact) or DD/MM/YYYY (pipeline output).
     """
     rows = []
-    with open(path, encoding='utf-8') as f:
-        for i, line in enumerate(f):
-            line = line.strip()
-            if not line or i == 0:
+    with open(path, encoding='utf-8', newline='') as f:
+        for i, parts in enumerate(csv.reader(f)):
+            if not parts or i == 0:
                 continue
-            parts = [p.strip() for p in line.split(',', 5)]
+            parts = [p.strip() for p in parts[:6]]
             if len(parts) >= 4:
                 # Normalize date in column 1 unless this is a card separator row
                 if parts[0] != 'Tarjeta Número:' and parts[1]:
@@ -317,3 +321,117 @@ class TestDaviErrorHandling:
             davi_stage1.process(infile, out)
         assert 'Monto' in exc_info.value.user_message
         assert not out.exists()
+
+
+class TestDaviEmbeddedCommaDescription:
+    """Regression test: a Descripción containing commas (e.g. "City, Country"
+    suffixes on foreign-purchase rows) must not be silently dropped by the
+    CRC/USD currency split (davi_stage2) or the YNAB conversion (davi_stage3).
+    """
+
+    INPUT_FILE = FIXTURES_DIR / 'DaviBank EmbeddedComma-in.xlsx'
+
+    def test_stage1_preserves_full_description(self, tmp_out):
+        out = tmp_out('out1.csv')
+        davi_stage1.process(self.INPUT_FILE, out)
+        rows = parse_davi_rows(out)
+        descriptions = [r[2] for r in rows if r[0] != 'Tarjeta Número:']
+        assert 'The Golden Arch (1203), Schiphol, NL' in descriptions
+        assert 'SKANSEN SMAKOW, CHOLERZYN, PL' in descriptions
+
+    def test_stage2_does_not_drop_comma_rows(self, tmp_out):
+        out1 = tmp_out('out1.csv')
+        crc = tmp_out('out2-crc.csv')
+        usd = tmp_out('out2-usd.csv')
+        davi_stage1.process(self.INPUT_FILE, out1)
+        davi_stage2.process(out1, crc, usd)
+
+        usd_rows = parse_davi_rows(usd)
+        descriptions = [r[2] for r in usd_rows]
+        assert 'The Golden Arch (1203), Schiphol, NL' in descriptions
+        assert 'SKANSEN SMAKOW, CHOLERZYN, PL' in descriptions
+        assert 'Normal Description No Comma' in descriptions
+        # every row must have ended up in exactly one currency file
+        assert len(usd_rows) == 3
+
+    def test_stage3_yields_correct_amount_and_payee(self, tmp_out):
+        out1 = tmp_out('out1.csv')
+        crc = tmp_out('out2-crc.csv')
+        usd = tmp_out('out2-usd.csv')
+        out3 = tmp_out('out3-usd.csv')
+        davi_stage1.process(self.INPUT_FILE, out1)
+        davi_stage2.process(out1, crc, usd)
+        davi_stage3.process(usd, out3, currency='usd')
+
+        rows = parse_ynab_rows(out3)
+        by_payee = {r[1]: r for r in rows}
+        assert 'The Golden Arch (1203), Schiphol, NL' in by_payee
+        assert by_payee['The Golden Arch (1203), Schiphol, NL'][3] == '-33.3'
+        assert 'SKANSEN SMAKOW, CHOLERZYN, PL' in by_payee
+        assert by_payee['SKANSEN SMAKOW, CHOLERZYN, PL'][3] == '-44.42'
+
+
+class TestDaviQIFExport:
+    @pytest.fixture(autouse=True)
+    def run_stages(self, tmp_out):
+        self.out1 = tmp_out('out1.csv')
+        self.out2_crc = tmp_out('out2-crc.csv')
+        self.out2_usd = tmp_out('out2-usd.csv')
+        davi_stage1.process(INPUT_FILE, self.out1)
+        davi_stage2.process(self.out1, self.out2_crc, self.out2_usd)
+
+    def test_crc_qif_matches_fixture(self, tmp_out):
+        out3 = tmp_out('out3-crc.csv')
+        qif = tmp_out('out3-crc.qif')
+        davi_stage3.process(self.out2_crc, out3, currency='crc')
+        qif_export.convert_csv_to_qif(out3, qif)
+
+        with open(qif) as f:
+            assert f.readline().strip() == '!Type:Bank'
+
+        gen = parse_qif_records(qif)
+        exp_csv = parse_ynab_rows(out3)
+        exp_qif = parse_qif_records(EXPECTED_QIF_CRC)
+        assert len(gen) == len(exp_csv)
+        assert_rows_match(gen, exp_qif, "Davi-QIF-CRC")
+
+    def test_usd_qif_matches_fixture(self, tmp_out):
+        out3 = tmp_out('out3-usd.csv')
+        qif = tmp_out('out3-usd.qif')
+        davi_stage3.process(self.out2_usd, out3, currency='usd')
+        qif_export.convert_csv_to_qif(out3, qif)
+
+        with open(qif) as f:
+            assert f.readline().strip() == '!Type:Bank'
+
+        gen = parse_qif_records(qif)
+        exp_csv = parse_ynab_rows(out3)
+        exp_qif = parse_qif_records(EXPECTED_QIF_USD)
+        assert len(gen) == len(exp_csv)
+        assert_rows_match(gen, exp_qif, "Davi-QIF-USD")
+
+
+class TestDaviCsvUnchangedByQifExport:
+    """User Story 2: QIF generation must not alter the out3 CSV (FR-010, SC-003)."""
+
+    @pytest.fixture(autouse=True)
+    def run_stages(self, tmp_out):
+        self.out1 = tmp_out('out1.csv')
+        self.out2_crc = tmp_out('out2-crc.csv')
+        self.out2_usd = tmp_out('out2-usd.csv')
+        davi_stage1.process(INPUT_FILE, self.out1)
+        davi_stage2.process(self.out1, self.out2_crc, self.out2_usd)
+
+    def test_crc_csv_bytes_unchanged_after_qif_export(self, tmp_out):
+        out3 = tmp_out('out3-crc.csv')
+        qif = tmp_out('out3-crc.qif')
+        davi_stage3.process(self.out2_crc, out3, currency='crc')
+        qif_export.convert_csv_to_qif(out3, qif)
+        assert out3.read_bytes() == EXPECTED_OUT3_CRC.read_bytes()
+
+    def test_usd_csv_bytes_unchanged_after_qif_export(self, tmp_out):
+        out3 = tmp_out('out3-usd.csv')
+        qif = tmp_out('out3-usd.qif')
+        davi_stage3.process(self.out2_usd, out3, currency='usd')
+        qif_export.convert_csv_to_qif(out3, qif)
+        assert out3.read_bytes() == EXPECTED_OUT3_USD.read_bytes()
