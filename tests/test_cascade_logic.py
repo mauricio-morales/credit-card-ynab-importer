@@ -214,6 +214,22 @@ class TestCheckClearance:
         assert len(result.issues) == 1
         assert result.issues[0].account_name == "Account 2"
 
+    def test_stray_old_unreconciled_does_not_hide_newer_unreconciled(self):
+        # a1 has one stray June txn (reconciled past it) but two real unreconciled
+        # txns after the latest reconciliation — those must still block
+        lookback = [
+            {"account_id": "a1", "cleared": "uncleared", "date": "2026-06-15"},
+            {"account_id": "a1", "cleared": "uncleared", "date": "2026-09-10"},
+            {"account_id": "a1", "cleared": "cleared", "date": "2026-09-20"},
+        ]
+        all_txns = lookback + [
+            {"account_id": "a1", "cleared": "reconciled", "date": "2026-09-06"},
+        ]
+        result = check_clearance(lookback, "loan-1", {"a1": "Visa"}, all_transactions=all_txns)
+        assert result.passed is False
+        assert result.issues[0].unreconciled_count == 2
+        assert result.issues[0].earliest_unreconciled == date(2026, 9, 10)
+
     def test_without_all_transactions_behaves_as_before(self):
         # Passing no all_transactions preserves original strict behavior
         lookback = [
